@@ -96,6 +96,7 @@ def clean_dataframe(
 
     return df
 
+
 def parse_date_fields(
     df: pd.DataFrame,
     date_fields: List[str],
@@ -120,6 +121,7 @@ def parse_date_fields(
 
     return df
 
+
 def validate_schema(df: pd.DataFrame, required_fields: List[str]) -> None:
     """
     校验必需字段是否存在
@@ -133,6 +135,7 @@ def validate_schema(df: pd.DataFrame, required_fields: List[str]) -> None:
 
     logger.info("Schema validation passed")
 
+
 def drop_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
     """
     删除全为空的行
@@ -145,6 +148,7 @@ def drop_empty_rows(df: pd.DataFrame) -> pd.DataFrame:
         logger.info(f"Dropped {before - after} empty rows")
 
     return df
+
 
 def normalize_columns(
     df: pd.DataFrame,
@@ -172,14 +176,48 @@ def normalize_columns(
     logger.debug(f"Final columns: {list(df.columns)}")
     return df
 
-def split_multi_value_fields(
+
+def parse_multivalue_columns(
     df: pd.DataFrame,
     fields: List[str],
     sep: str = ",",
 ) -> pd.DataFrame:
     """
-    拆分多值字段（如 疾病：A,B,C）
-    注意：这里只做字符串 → list，不做行展开
+    将 DataFrame 中指定的多值字段从字符串格式解析为列表(list)。
+
+    该函数用于处理形如 "A,B,C" 的多值字段，将其拆分为
+    ["A", "B", "C"] 的列表形式，方便后续特征工程或统计分析。
+
+    注意：
+    - 仅进行 **字符串 → list 的转换**
+    - 不进行行展开（不会使用 explode）
+    - 原 DataFrame 会被复制，避免修改原始数据
+
+    处理规则：
+    1. 如果字段不存在，则记录 warning 并跳过
+    2. NaN 值转换为 []
+    3. 字符串按 sep 分隔并去除空格
+    4. 过滤空字符串
+    5. 非字符串值包装为单元素 list
+
+    示例
+    -------
+    输入：
+        疾病 = "A,B,C"
+
+    输出：
+        疾病 = ["A", "B", "C"]
+
+    参数
+    -------
+    df : pd.DataFrame
+        输入数据表
+
+    fields : List[str]
+        需要拆分的多值字段列表
+
+    sep : str
+        多值分隔符，默认 ","
     """
     df = df.copy()
 
