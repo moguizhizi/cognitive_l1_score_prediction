@@ -10,6 +10,11 @@ from openpyxl import load_workbook
 from typing import List
 import time
 
+from utils.logger import get_logger
+from utils.path_utils import safe_filename
+
+logger = get_logger(__name__)
+
 
 def build_column_mapping(
     excel_to_label: Dict[str, str],
