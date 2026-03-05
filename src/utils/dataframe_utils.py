@@ -1,11 +1,47 @@
 # src/utils/dataframe_utils.py
 
+from typing import List, Optional
+
 import pandas as pd
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def normalize_multilabel_series(series: pd.Series) -> pd.Series:
     """
-    规范多标签字段：
+    规范化多标签字段（多标签使用 "_" 分隔）。
+
+    该函数用于统一多标签字符串的格式，使语义相同但格式不同的标签组合
+    具有一致的表示形式，便于后续特征工程、统计分析或模型训练。
+
+    处理步骤：
+    1. 使用 "_" 将字符串拆分为多个标签
+    2. 去除每个标签前后的空格
+    3. 过滤空标签（如 "" 或仅包含空格）
+    4. 对标签进行去重
+    5. 按字母顺序排序，保证标签顺序一致
+    6. 使用 "_" 重新拼接为字符串
+
+    示例
+    -------
+    输入：
+        "B_A"
+        "A_A_B"
+        " A _ B _ "
+        "C_B_A"
+
+    输出：
+        "A_B"
+        "A_B"
+        "A_B"
+        "A_B_C"
+
+    作用：
+    - 保证逻辑相同的标签集合有一致的字符串表示
+    - 避免 "A_B" 与 "B_A" 被当成不同类别
+    - 便于 groupby、统计、特征编码等操作
     """
 
     return series.str.split("_").apply(
@@ -57,5 +93,29 @@ def clean_dataframe(
             df[col] = normalize_multilabel_series(df[col])
         except Exception:
             pass
+
+    return df
+
+def parse_date_fields(
+    df: pd.DataFrame,
+    date_fields: List[str],
+    date_format: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    将日期字段统一转为 ISO 格式字符串
+    """
+    df = df.copy()
+
+    for field in date_fields:
+        if field not in df.columns:
+            logger.warning(f"Date field not found, skip: {field}")
+            continue
+
+        logger.info(f"Parsing date field: {field}")
+        df[field] = pd.to_datetime(
+            df[field],
+            format=date_format,
+            errors="coerce",
+        ).dt.strftime("%Y-%m-%d")
 
     return df
