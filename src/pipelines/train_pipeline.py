@@ -1,23 +1,23 @@
-from src.data.loader import load_data
-from src.features.feature_builder import build_features
-from src.models.model_factory import create_model
+# src/pipelines/train_pipeline.py
+
+import pandas as pd
+
+from src.features.time_series_features import build_training_dataset
+from src.models.lightgbm_model import LightGBMModel
 
 
-def train_pipeline(config):
+def train_pipeline(df: pd.DataFrame):
 
-    # 1 读取数据
-    df = load_data(config["data_path"])
+    print("Building features...")
 
-    # 2 特征工程
-    X, y = build_features(df)
+    X, y, feature_cols = build_training_dataset(df)
 
-    # 3 创建模型
-    model = create_model(config["model_name"], config.get("model_params", {}))
+    print("Training LightGBM...")
 
-    # 4 训练
+    model = LightGBMModel()
+
     model.fit(X, y)
 
-    # 5 预测
-    preds = model.predict(X)
+    print("Training finished")
 
-    return model, preds
+    return model, feature_cols

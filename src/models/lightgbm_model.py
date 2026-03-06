@@ -1,15 +1,18 @@
 import lightgbm as lgb
-from .base_model import BaseModel
 
 
-class LightGBMModel(BaseModel):
+class LightGBMModel:
 
-    def __init__(self, params=None):
-        self.params = params or {}
-        self.model = None
+    def __init__(self):
+        self.model = lgb.LGBMRegressor(
+            n_estimators=500,
+            learning_rate=0.05,
+            max_depth=6,
+            subsample=0.8,
+            colsample_bytree=0.8,
+        )
 
     def fit(self, X, y):
-        self.model = lgb.LGBMRegressor(**self.params)
         self.model.fit(X, y)
 
     def predict(self, X):
