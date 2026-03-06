@@ -238,3 +238,17 @@ def parse_multivalue_columns(
         df[field] = df[field].apply(_split)
 
     return df
+
+def fill_na_values(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    保持 DataFrame 内部为 NaN，
+    在导出 records 时再统一转换为 None。
+    """
+
+    na_count = df.isna().sum().sum()
+
+    logger.info(
+        f"Keeping NA values as NaN | total_na_cells={na_count}"
+    )
+
+    return df
