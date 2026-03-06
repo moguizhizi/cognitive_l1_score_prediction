@@ -44,6 +44,7 @@ cognitive_l1_score_prediction/
 │   │   ├── base_model.py
 │   │   ├── xgboost_model.py
 │   │   ├── lightgbm_model.py
+│   │   ├── least_square_model.py
 │   │   ├── mlp_model.py
 │   │   └── model_factory.py
 │   │
