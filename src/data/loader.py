@@ -1,7 +1,7 @@
 # src/data/loader.py
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from src.utils.xlsx_utils import xlsx_to_parquet_dataset
 from src.utils.logger import get_logger
@@ -55,12 +55,12 @@ def convert_xlsx_to_parquet(
     compression="zstd",
     overwrite=False,
     multi_label_keywords: list = None,
-):
+) -> Dict[str, str]:
     """
     将 raw xlsx 转换为 parquet
     """
 
-    xlsx_to_parquet_dataset(
+    return xlsx_to_parquet_dataset(
         input_path=xlsx_path,
         output_dir=parquet_path,
         compression=compression,
