@@ -78,6 +78,7 @@ cognitive_l1_score_prediction/
 │   │
 │   └── pipelines/               # 任务级pipeline
 │       ├── train_pipeline.py
+│       ├── evaluation_pipeline.py
 │       └── infer_pipeline.py
 │
 ├── scripts/                     # 命令行脚本
