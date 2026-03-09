@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from src.data.loader import convert_xlsx_to_parquet
+from src.data.loader import convert_xlsx_to_parquet, load_parquet_as_dataframe
 from src.utils.logger import get_logger, setup_logging
 
 
@@ -20,6 +20,10 @@ def main():
     )
 
     logger.info(paths)
+
+    load_parquet_as_dataframe(
+        parquet_path="data/raw/raw_training_weekly_cognitive_ability_scores/raw.parquet"
+    )
 
 
 if __name__ == "__main__":
