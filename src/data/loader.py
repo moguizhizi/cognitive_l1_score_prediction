@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import List, Optional
 
-from utils.xlsx_utils import xlsx_to_parquet_dataset
-from utils.logger import get_logger
+from src.utils.xlsx_utils import xlsx_to_parquet_dataset
+from src.utils.logger import get_logger
 import pandas as pd
 import time
 
