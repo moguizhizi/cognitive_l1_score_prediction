@@ -1,13 +1,17 @@
 from .lightgbm_model import LightGBMModel
-from .least_square_model import LeastSquareModel
+from .xgboost_model import XGBoostModel
+from .mlp_model import MLPModel
 
-def create_model(model_name, config):
+
+def build_model(model_name, params=None):
 
     if model_name == "lightgbm":
-        return LightGBMModel(config)
+        return LightGBMModel(params)
 
-    elif model_name == "least_square":
-        return LeastSquareModel()
+    if model_name == "xgboost":
+        return XGBoostModel(params)
 
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
+    if model_name == "mlp":
+        return MLPModel(params)
+
+    raise ValueError(f"Unknown model: {model_name}")

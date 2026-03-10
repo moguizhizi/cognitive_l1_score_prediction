@@ -10,3 +10,11 @@ class BaseModel(ABC):
     @abstractmethod
     def predict(self, X):
         pass
+
+    @abstractmethod
+    def save(self, path):
+        pass
+
+    @abstractmethod
+    def load(self, path):
+        pass
