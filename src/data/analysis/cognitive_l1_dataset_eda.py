@@ -102,9 +102,6 @@ def training_week_statistics(df: pd.DataFrame):
     patient_id = COLUMN_MAPPING[ColumnName.PATIENT_ID.value]
     week = COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value]
 
-    # 转换为数值类型（防止是字符串）
-    df[week] = pd.to_numeric(df[week], errors="coerce")
-
     # 删除非法week
     df = df.dropna(subset=[week])
 
@@ -149,9 +146,6 @@ def cognitive_score_statistics(df: pd.DataFrame):
         COLUMN_MAPPING[ColumnName.MEMORY.value],
         COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value],
     ]
-
-    # 转换为数值类型
-    df[columns] = df[columns].apply(pd.to_numeric, errors="coerce")
 
     # describe统计
     stats = df[columns].describe().round(2).to_dict()

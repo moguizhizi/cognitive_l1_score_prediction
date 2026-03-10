@@ -50,8 +50,6 @@ def split_cognitive_l1_dataset(df: pd.DataFrame, column_mapping: dict):
 
     logger.info("Starting dataset split")
 
-    # 确保 week 为数值
-    df[week] = pd.to_numeric(df[week], errors="coerce")
     df = df.dropna(subset=[week])
 
     # 计算每个患者最大训练周数
