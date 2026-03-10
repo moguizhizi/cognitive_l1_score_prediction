@@ -61,24 +61,22 @@ def build_trend_features(
     return df
 
 
-def build_training_dataset(
+def build_time_series_data(
     df: pd.DataFrame,
     user_col="user_id",
     time_col="week",
     value_col="score",
 ):
-    """
-    构建训练数据
 
-    输出:
-        X, y
-    """
+    df = df.copy()
+
+    # 确保目标列为数值
+    df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
 
     df = build_lag_features(df, user_col, time_col, value_col)
     df = build_stat_features(df, value_col)
     df = build_trend_features(df, value_col)
 
-    # 删除 lag 不完整的数据
     df = df.dropna()
 
     feature_cols = [

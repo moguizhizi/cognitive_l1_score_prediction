@@ -1,3 +1,8 @@
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
 class Trainer:
 
     def __init__(self, model):
@@ -5,10 +10,18 @@ class Trainer:
 
     def fit(self, X_train, y_train, X_val=None, y_val=None):
 
+        logger.info("Start model training")
+
         self.model.fit(X_train, y_train)
 
+        logger.info("Training finished")
+
         if X_val is not None:
+
+            logger.info("Running validation prediction")
+
             val_pred = self.model.predict(X_val)
+
             return val_pred
 
         return None
