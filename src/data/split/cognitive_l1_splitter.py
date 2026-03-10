@@ -130,7 +130,7 @@ def main():
         "data/processed/raw_training_weekly_cognitive_ability_scores/processed.parquet"
     )
 
-    OUTPUT_DIR = Path("data/splitter")
+    OUTPUT_DIR = Path("data/splitter/raw_training_weekly_cognitive_ability_scores")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
