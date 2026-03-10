@@ -14,7 +14,7 @@ setup_logging()
 logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-HOME_BASED_USER_TRAINING = (
+COGNITIVE_ABILITY_TRAINING = (
     BASE_DIR / "core" / "raw_training_weekly_cognitive_ability_scores"
 )
 
@@ -47,7 +47,7 @@ def main():
     # 3. load column mapping
     logger.info("Step 3: Loading column mapping")
 
-    with open(Path(HOME_BASED_USER_TRAINING) / "column_mapping.json") as f:
+    with open(Path(COGNITIVE_ABILITY_TRAINING) / "column_mapping.json") as f:
         COLUMN_MAPPING = json.load(f)
 
     logger.info(f"Column mapping size: {len(COLUMN_MAPPING)}")
