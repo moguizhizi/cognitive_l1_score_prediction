@@ -11,7 +11,7 @@ EDA 脚本：cognitive_l1_dataset 数据探索分析
 7. 将分析结果保存为 JSON 和 CSV 文件
 
 运行方式：
-python -m src.data.analysis.eda_cognitive_l1_dataset
+python -m src.data.analysis.cognitive_l1_dataset_eda
 """
 
 import json
@@ -222,13 +222,13 @@ def run_eda():
 
     logger.info(f"EDA report saved to: {report_path}")
 
-    # 保存每个患者训练周数（Parquet格式）
-    weeks_path = OUTPUT_DIR / "patient_training_weeks.parquet"
+    # 保存每个患者训练周数（CSV格式）
+    weeks_path = OUTPUT_DIR / "patient_training_weeks.csv"
 
     patient_weeks_df = patient_weeks.reset_index()
     patient_weeks_df.columns = ["patient_id", "max_training_week"]
 
-    patient_weeks_df.to_parquet(weeks_path, index=False)
+    patient_weeks_df.to_csv(weeks_path, index=False)
 
     logger.info(f"Patient training weeks saved to: {weeks_path}")
 
