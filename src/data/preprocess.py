@@ -20,6 +20,7 @@ def preprocess_dataframe(
     date_fields: Optional[List[str]] = None,
     multi_value_fields: Optional[List[str]] = None,
     required_fields: Optional[List[str]] = None,
+    numeric_fields: Optional[List[str]] = None,  # ⭐ 新增
 ) -> pd.DataFrame:
     """
     DataFrame 数据预处理主流程
@@ -31,6 +32,7 @@ def preprocess_dataframe(
     - schema校验（可选）
     - 日期字段解析（可选）
     - 多值字段拆分（可选）
+    - 数值字段转换（可选）
     """
 
     df = normalize_columns(df, column_mapping=column_mapping)
@@ -47,5 +49,9 @@ def preprocess_dataframe(
 
     if multi_value_fields:
         df = parse_multivalue_columns(df, multi_value_fields)
+
+
+    if numeric_fields:
+        df[numeric_fields] = df[numeric_fields].apply(pd.to_numeric, errors="coerce")
 
     return df

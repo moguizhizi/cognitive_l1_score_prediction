@@ -69,6 +69,17 @@ def main():
         COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value],
     ]
 
+    numeric_fields = [
+        COLUMN_MAPPING[ColumnName.AGE_AT_TRAINING_START.value],
+        COLUMN_MAPPING[ColumnName.FIRST_ASSESSMENT_MEAN_SCORE.value],
+        COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value],
+        COLUMN_MAPPING[ColumnName.QUALIFIED_TRAINING_DAYS.value],
+        COLUMN_MAPPING[ColumnName.PERCEPTION.value],
+        COLUMN_MAPPING[ColumnName.ATTENTION.value],
+        COLUMN_MAPPING[ColumnName.MEMORY.value],
+        COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value],
+    ]
+
     logger.info(f"Date fields: {date_fields}")
     logger.info(f"Required fields: {required_fields}")
 
@@ -80,6 +91,7 @@ def main():
         column_mapping=COLUMN_MAPPING,
         date_fields=date_fields,
         required_fields=required_fields,
+        numeric_fields=numeric_fields,
     )
 
     logger.info(f"Processed dataset shape: {df.shape}")
