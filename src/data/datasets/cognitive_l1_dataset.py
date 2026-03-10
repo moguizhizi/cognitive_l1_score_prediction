@@ -5,7 +5,7 @@ from pathlib import Path
 from src.data.loader import convert_xlsx_to_parquet, load_parquet_as_dataframe
 from src.data.preprocess import preprocess_dataframe
 from src.utils.logger import get_logger, setup_logging
-from data.raw.constants import ColumnName
+from src.core.constants import ColumnName
 
 
 # 初始化日志系统
@@ -37,10 +37,13 @@ def main():
     date_fields = [
         COLUMN_MAPPING[ColumnName.BIRTH_DATE.value],
     ]
+
+    required_fields = [COLUMN_MAPPING[ColumnName.PATIENT_NAME.value]]
+
     df = preprocess_dataframe(
         df=df,
         column_mapping=COLUMN_MAPPING,
-        date_fields=COLUMN_MAPPING[ColumnName.BIRTH_DATE.value],
+        date_fields=date_fields,
     )
 
 
