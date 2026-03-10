@@ -41,11 +41,11 @@ DATA_PATH = (
 OUTPUT_DIR = BASE_DIR / "experiments/eda/raw_training_weekly_cognitive_ability_scores"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-HOME_BASED_USER_TRAINING = (
+COGNITIVE_ABILITY_TRAINING = (
     BASE_DIR / "src" / "core" / "raw_training_weekly_cognitive_ability_scores"
 )
 
-with open(Path(HOME_BASED_USER_TRAINING) / "column_mapping.json") as f:
+with open(Path(COGNITIVE_ABILITY_TRAINING) / "column_mapping.json") as f:
     COLUMN_MAPPING = json.load(f)
 
 
