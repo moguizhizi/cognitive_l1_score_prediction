@@ -29,13 +29,17 @@ cognitive_l1_score_prediction/
 │   │
 │   ├── __init__.py
 │   │
+│   ├── core/                    # 项目核心定义：全局常量、枚举、数据Schema等
+│   │   ├── __init__.py
+│   │   └── constants.py
+│   │
 │   ├── data/                    # 数据处理模块
 │   │   ├── loader.py
 │   │   ├── preprocess.py
-│   |   ├── splitter.py
-│   |   └── datasets/                ⭐ 新增
-|   |       ├── __init__.py
-|   |       └── cognitive_l1_dataset.py
+│   │   ├── splitter.py
+│   │   └── datasets/
+│   │       ├── __init__.py
+│   │       └── cognitive_l1_dataset.py
 │   │
 │   ├── features/                # 特征工程
 │   │   ├── feature_builder.py
