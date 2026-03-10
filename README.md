@@ -37,6 +37,11 @@ cognitive_l1_score_prediction/
 │   │   ├── loader.py
 │   │   ├── preprocess.py
 │   │   ├── splitter.py
+│   │   │
+│   │   ├── analysis/            # 数据分析（EDA）模块
+│   │   │   ├── __init__.py
+│   │   │   └── eda_cognitive_l1_dataset.py
+│   │   │
 │   │   └── datasets/
 │   │       ├── __init__.py
 │   │       └── cognitive_l1_dataset.py
