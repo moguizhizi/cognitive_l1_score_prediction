@@ -38,6 +38,10 @@ cognitive_l1_score_prediction/
 │   │   ├── preprocess.py
 │   │   ├── splitter.py
 │   │   │
+│   │   ├── split/               # 数据集划分模块
+│   │   │   ├── __init__.py
+│   │   │   └── cognitive_l1_splitter.py
+│   │   │
 │   │   ├── analysis/            # 数据分析（EDA）模块
 │   │   │   ├── __init__.py
 │   │   │   └── eda_cognitive_l1_dataset.py
