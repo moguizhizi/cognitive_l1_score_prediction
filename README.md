@@ -6,43 +6,39 @@ cognitive_l1_score_prediction/
 ├── setup.py
 ├── .gitignore
 │
-├── config/                      # 配置文件目录
-│   ├── default.yaml
-│   ├── train.yaml
-│   ├── infer.yaml
-│   └── model/
-│       ├── xgboost.yaml
-│       ├── lightgbm.yaml
-│       └── mlp.yaml
+├── configs/                       # 配置文件目录
+│   ├── __init__.py
+│   ├── loader.py
+│   └── train.yaml
 │
-├── data/                        # 数据目录（不提交大文件）
-│   ├── raw/                     # 原始数据
-│   ├── processed/               # 清洗后数据
-│   └── features/                # 特征工程结果
+├── data/                           # 数据目录（不提交大文件）
+│   ├── raw/                        # 原始数据
+│   ├── processed/                  # 清洗后数据
+│   └── features/                   # 特征工程结果
 │
-├── notebooks/                   # 实验分析 notebook
+├── notebooks/                      # 实验分析 notebook
 │   ├── EDA.ipynb
 │   ├── feature_analysis.ipynb
 │   └── error_analysis.ipynb
 │
-├── src/                         # 核心源码
+├── src/                            # 核心源码
 │   │
 │   ├── __init__.py
 │   │
-│   ├── core/                    # 项目核心定义：全局常量、枚举、数据Schema等
+│   ├── core/                       # 项目核心定义：全局常量、枚举、数据Schema等
 │   │   ├── __init__.py
 │   │   └── constants.py
 │   │
-│   ├── data/                    # 数据处理模块
+│   ├── data/                       # 数据处理模块
 │   │   ├── loader.py
 │   │   ├── preprocess.py
 │   │   ├── splitter.py
 │   │   │
-│   │   ├── split/               # 数据集划分模块
+│   │   ├── split/                  # 数据集划分模块
 │   │   │   ├── __init__.py
 │   │   │   └── cognitive_l1_splitter.py
 │   │   │
-│   │   ├── analysis/            # 数据分析（EDA）模块
+│   │   ├── analysis/               # 数据分析（EDA）模块
 │   │   │   ├── __init__.py
 │   │   │   └── eda_cognitive_l1_dataset.py
 │   │   │
@@ -50,13 +46,13 @@ cognitive_l1_score_prediction/
 │   │       ├── __init__.py
 │   │       └── cognitive_l1_dataset.py
 │   │
-│   ├── features/                # 特征工程
+│   ├── features/                   # 特征工程
 │   │   ├── feature_builder.py
 │   │   ├── feature_selector.py
 │   │   ├── time_series_features.py
 │   │   └── feature_utils.py
 │   │
-│   ├── models/                  # 模型定义
+│   ├── models/                     # 模型定义
 │   │   ├── base_model.py
 │   │   ├── xgboost_model.py
 │   │   ├── lightgbm_model.py
@@ -64,22 +60,22 @@ cognitive_l1_score_prediction/
 │   │   ├── mlp_model.py
 │   │   └── model_factory.py
 │   │
-│   ├── training/                # 训练流程
+│   ├── training/                   # 训练流程
 │   │   ├── trainer.py
 │   │   ├── loss.py
 │   │   ├── optimizer.py
 │   │   └── scheduler.py
 │   │
-│   ├── evaluation/              # 评估模块
+│   ├── evaluation/                 # 评估模块
 │   │   ├── metrics.py
 │   │   ├── evaluator.py
 │   │   └── visualization.py
 │   │
-│   ├── inference/               # 推理
+│   ├── inference/                  # 推理
 │   │   ├── predictor.py
 │   │   └── batch_infer.py
 │   │
-│   ├── utils/                   # 通用工具
+│   ├── utils/                      # 通用工具
 │   │   ├── logger.py
 │   │   ├── seed.py
 │   │   ├── io_utils.py
@@ -91,27 +87,29 @@ cognitive_l1_score_prediction/
 │   │   ├── dataframe_utils.py
 │   │   └── config_loader.py
 │   │
-│   └── pipelines/               # 任务级pipeline
+│   └── pipelines/                  # 任务级 pipeline
 │       ├── build_dataset_pipeline.py
-│       ├── train_pipeline.py
 │       ├── evaluation_pipeline.py
-│       └── infer_pipeline.py
+│       ├── infer_pipeline.py
+│       └── train_pipleline/        # 新增训练子目录
+│           ├── cognitive_l1.py
+│           └── train_cognitive_l1_models.py
 │
-├── scripts/                     # 命令行脚本
+├── scripts/                        # 命令行脚本
 │   ├── train.sh
 │   ├── infer.sh
 │   └── evaluate.sh
 │
-├── experiments/                 # 实验记录
+├── experiments/                    # 实验记录
 │   ├── exp_001_baseline/
 │   ├── exp_002_feature_v2/
 │   └── logs/
 │
-├── checkpoints/                 # 模型权重
+├── checkpoints/                    # 模型权重
 │   ├── best_model.pt
 │   └── last_model.pt
 │
-└── tests/                       # 单元测试
+└── tests/                          # 单元测试
     ├── test_data.py
     ├── test_model.py
     └── test_metrics.py
