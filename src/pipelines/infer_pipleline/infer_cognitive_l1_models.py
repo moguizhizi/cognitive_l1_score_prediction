@@ -5,6 +5,7 @@ import json
 import joblib
 from datetime import datetime
 from src.core.raw_training_weekly_cognitive_ability_scores.constants import ColumnName
+from src.models.model_factory import build_model
 from src.utils.logger import get_logger, setup_logging
 from sklearn.metrics import (
     mean_absolute_error,
@@ -199,35 +200,36 @@ def main():
     # 2 模型路径
     # ==========================
 
-    checkpoint_dir = BASE_DIR / "checkpoints"
+    checkpoint_dir = BASE_DIR / "checkpoints" / "cognitive_l1"
 
     model_paths = {
         COLUMN_MAPPING[ColumnName.PERCEPTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.PERCEPTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.PERCEPTION.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.ATTENTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.ATTENTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.ATTENTION.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.MEMORY.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.MEMORY.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.MEMORY.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]}_lightgbm.txt",
     }
-
-    results = {}
 
     # ==========================
     # 3 逐模型评估
     # ==========================
 
+    results = {}
     for target_name, model_path in model_paths.items():
 
+        logger.info(f"Evaluating target: {target_name}")
         logger.info(f"Loading model: {model_path}")
 
-        model = joblib.load(model_path)
+        # 创建模型
+        model = build_model("lightgbm")
 
+        # 加载模型
+        model.load(model_path)
+
+        # 评估
         metrics = evaluate_model(
             model=model,
             df=df,
@@ -251,6 +253,8 @@ def main():
         json.dump(results, f, indent=4)
 
     logger.info(f"Evaluation results saved to: {result_path}")
+
+    logger.info("Evaluation pipeline finished successfully")
 
 
 if __name__ == "__main__":

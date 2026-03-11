@@ -96,10 +96,9 @@ def main():
 
     for target, model in models.items():
 
-        model_path = model_dir / f"{target}_lightgbm.pkl"
+        model_path = model_dir / f"{target}_lightgbm.txt"
 
-        with open(model_path, "wb") as f:
-            pickle.dump(model, f)
+        model.save(model_path)
 
         logger.info(f"Model saved: {model_path}")
 
