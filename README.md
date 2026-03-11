@@ -71,7 +71,7 @@ cognitive_l1_score_prediction/
 │   │   ├── evaluator.py
 │   │   └── visualization.py
 │   │
-│   ├── inference/                  # 推理
+│   ├── inference/                  # 推理核心逻辑
 │   │   ├── predictor.py
 │   │   └── batch_infer.py
 │   │
@@ -89,11 +89,14 @@ cognitive_l1_score_prediction/
 │   │
 │   └── pipelines/                  # 任务级 pipeline
 │       ├── build_dataset_pipeline.py
-│       ├── evaluation_pipeline.py
-│       ├── infer_pipeline.py
-│       └── train_pipleline/        # 新增训练子目录
-│           ├── cognitive_l1.py
-│           └── train_cognitive_l1_models.py
+│       ├── __init__.py
+│       │
+│       ├── train_pipleline/        # 训练 pipeline
+│       │   ├── cognitive_l1.py
+│       │   └── train_cognitive_l1_models.py
+│       │
+│       └── infer_pipleline/        # 推理 pipeline
+│           └── infer_cognitive_l1_models.py
 │
 ├── scripts/                        # 命令行脚本
 │   ├── train.sh
