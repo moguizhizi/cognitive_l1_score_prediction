@@ -8,13 +8,9 @@ cognitive_l1_score_prediction/
 │
 ├── configs/                       # 配置文件目录
 │   ├── __init__.py
+│   ├── config.yaml
 │   ├── loader.py
 │   └── train.yaml
-│
-├── data/                           # 数据目录（不提交大文件）
-│   ├── raw/                        # 原始数据
-│   ├── processed/                  # 清洗后数据
-│   └── features/                   # 特征工程结果
 │
 ├── notebooks/                      # 实验分析 notebook
 │   ├── EDA.ipynb
@@ -27,7 +23,14 @@ cognitive_l1_score_prediction/
 │   │
 │   ├── core/                       # 项目核心定义：全局常量、枚举、数据Schema等
 │   │   ├── __init__.py
-│   │   └── constants.py
+│   │   ├── constants.py
+│   │   ├── brain_ability_values_by_training_week_20260324/
+│   │   │   ├── column_mapping.json
+│   │   │   └── constants.py
+│   │   └── raw_training_weekly_cognitive_ability_scores/
+│   │       ├── __init__.py
+│   │       ├── column_mapping.json
+│   │       └── constants.py
 │   │
 │   ├── data/                       # 数据处理模块
 │   │   ├── loader.py
@@ -40,7 +43,7 @@ cognitive_l1_score_prediction/
 │   │   │
 │   │   ├── analysis/               # 数据分析（EDA）模块
 │   │   │   ├── __init__.py
-│   │   │   └── eda_cognitive_l1_dataset.py
+│   │   │   └── cognitive_l1_dataset_eda.py
 │   │   │
 │   │   └── datasets/
 │   │       ├── __init__.py
@@ -102,15 +105,6 @@ cognitive_l1_score_prediction/
 │   ├── train.sh
 │   ├── infer.sh
 │   └── evaluate.sh
-│
-├── experiments/                    # 实验记录
-│   ├── exp_001_baseline/
-│   ├── exp_002_feature_v2/
-│   └── logs/
-│
-├── checkpoints/                    # 模型权重
-│   ├── best_model.pt
-│   └── last_model.pt
 │
 └── tests/                          # 单元测试
     ├── test_data.py
