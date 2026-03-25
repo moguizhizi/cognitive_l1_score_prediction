@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 
 def safe_filename(name: str) -> str:
@@ -19,3 +20,8 @@ def safe_filename(name: str) -> str:
     name = re.sub(r"_+", "_", name).strip("_")
 
     return name
+
+
+def resolve_project_path(path_str: str, base_dir: Path) -> Path:
+    path = Path(path_str)
+    return path if path.is_absolute() else base_dir / path
