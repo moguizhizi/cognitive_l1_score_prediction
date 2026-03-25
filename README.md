@@ -26,7 +26,8 @@ cognitive_l1_score_prediction/
 │   │   ├── constants.py
 │   │   ├── brain_ability_values_by_training_week_20260324/
 │   │   │   ├── column_mapping.json
-│   │   │   └── constants.py
+│   │   │   ├── constants.py
+│   │   │   └── fields.py
 │   │   └── raw_training_weekly_cognitive_ability_scores/
 │   │       ├── __init__.py
 │   │       ├── column_mapping.json
