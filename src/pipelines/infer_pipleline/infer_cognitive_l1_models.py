@@ -5,6 +5,8 @@ import json
 import joblib
 from datetime import datetime
 from src.core.raw_training_weekly_cognitive_ability_scores.constants import ColumnName
+from src.features.time_series_features import build_features
+from src.models.model_factory import build_model
 from src.utils.logger import get_logger, setup_logging
 from sklearn.metrics import (
     mean_absolute_error,
@@ -49,33 +51,38 @@ def predict_next_week(model, df_user: pd.DataFrame, score_col: str):
         COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value], ascending=True
     )
 
-    last = df_user.tail(3)
+    if len(df_user) < 1:
+        raise ValueError("Insufficient history for prediction")
 
-    if len(last) < 3:
+    if len(df_user) < 3:
         logger.warning(
-            f"Insufficient history for prediction: only {len(last)} weeks available"
+            f"Insufficient history for prediction: only {len(df_user)} weeks available"
         )
 
-    features = {}
+    scores = pd.to_numeric(df_user[score_col], errors="coerce").dropna().tolist()
 
-    scores = last[score_col].tolist()
+    if not scores:
+        raise ValueError("No valid score history for prediction")
 
-    logger.debug(f"Last scores used for feature construction: {scores}")
+    logger.debug(f"History scores used for feature construction: {scores}")
 
-    features[f"{score_col}_lag1"] = scores[-1]
-    features[f"{score_col}_lag2"] = scores[-2]
-    features[f"{score_col}_lag3"] = scores[-3]
-
-    features["mean_last3"] = sum(scores) / 3
-    features["std_last3"] = pd.Series(scores).std()
-    features["max_last3"] = max(scores)
-    features["min_last3"] = min(scores)
-
-    features["trend_last3"] = scores[-1] - scores[-3]
+    features = build_features(scores, max_lag=3)
 
     logger.debug(f"Constructed features: {features}")
 
-    X = pd.DataFrame([features])
+    feature_cols = [
+        "lag_1",
+        "lag_2",
+        "lag_3",
+        "mean",
+        "std",
+        "min",
+        "max",
+        "trend",
+        "last_diff",
+        "length",
+    ]
+    X = pd.DataFrame([features])[feature_cols]
 
     logger.debug(f"Feature dataframe for prediction: {X.to_dict(orient='records')}")
 
@@ -121,13 +128,13 @@ def evaluate_model(
             df[COLUMN_MAPPING[ColumnName.PATIENT_ID.value]] == user_id
         ].sort_values(COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value], ascending=True)
 
-        # 至少需要4周数据
-        if len(df_user) < 4:
+        # 至少需要2周数据，才能构建“历史 -> 当前周”的评估样本
+        if len(df_user) < 2:
             continue
 
-        for i in range(3, len(df_user)):
+        for i in range(1, len(df_user)):
 
-            history = df_user.iloc[i - 3 : i]
+            history = df_user.iloc[:i]
             target = df_user.iloc[i][target_col]
 
             try:
@@ -199,35 +206,36 @@ def main():
     # 2 模型路径
     # ==========================
 
-    checkpoint_dir = BASE_DIR / "checkpoints"
+    checkpoint_dir = BASE_DIR / "checkpoints" / "cognitive_l1"
 
     model_paths = {
         COLUMN_MAPPING[ColumnName.PERCEPTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.PERCEPTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.PERCEPTION.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.ATTENTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.ATTENTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.ATTENTION.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.MEMORY.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.MEMORY.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.MEMORY.value]}_lightgbm.txt",
         COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]: checkpoint_dir
-        / "cognitive_l1"
-        / f"{COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]}_lightgbm.pkl",
+        / f"{COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]}_lightgbm.txt",
     }
-
-    results = {}
 
     # ==========================
     # 3 逐模型评估
     # ==========================
 
+    results = {}
     for target_name, model_path in model_paths.items():
 
+        logger.info(f"Evaluating target: {target_name}")
         logger.info(f"Loading model: {model_path}")
 
-        model = joblib.load(model_path)
+        # 创建模型
+        model = build_model("lightgbm")
 
+        # 加载模型
+        model.load(model_path)
+
+        # 评估
         metrics = evaluate_model(
             model=model,
             df=df,
@@ -251,6 +259,8 @@ def main():
         json.dump(results, f, indent=4)
 
     logger.info(f"Evaluation results saved to: {result_path}")
+
+    logger.info("Evaluation pipeline finished successfully")
 
 
 if __name__ == "__main__":
