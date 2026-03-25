@@ -1,0 +1,48 @@
+
+xlsx_to_parquet:
+  raw_files:
+
+    - xlsx: data/external/raw/brain_ability_values_by_training_week_20260324/brain_ability_values_by_training_week_20260324.xlsx
+      parquet: data/internal/raw/brain_ability_values_by_training_week_20260324
+
+# ==============================
+# CSV 列名映射文件
+# ==============================
+column_mapping:
+
+  brain_ability_values_by_training_week_20260324: src/core/brain_ability_values_by_training_week_20260324/column_mapping.json
+
+
+# ==============================
+# CSV 字段名称定义
+# key: 文件名（不含后缀）
+# value: 字段名列表
+# ==============================
+columns:
+
+  brain_ability_values_by_training_week_20260324:
+    - 医院id
+    - 医院
+    - 患者姓名
+    - 患者编码
+    - 性别
+    - 出生日期
+    - 疾病标签
+    - 科室
+    - 首次测评脑能力均值(任务40-160均值)
+    - 首个应训练日日期
+    - 训练周数
+    - 该周达标天数
+    - 感知觉
+    - 注意力
+    - 记忆力
+    - 执行功能
+
+  
+
+raw_to_processed:
+
+  brain_ability_values_by_training_week_20260324:
+
+    raw: data/internal/raw/brain_ability_values_by_training_week_20260324
+    processed: data/internal/processed/brain_ability_values_by_training_week_20260324
