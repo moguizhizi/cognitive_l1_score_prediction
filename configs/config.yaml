@@ -38,8 +38,6 @@ columns:
     - 记忆力
     - 执行功能
 
-  
-
 raw_to_processed:
 
   brain_ability_values_by_training_week_20260324:
@@ -53,3 +51,23 @@ processed_to_splitter:
 
     processed: data/internal/processed/brain_ability_values_by_training_week_20260324
     splitter: data/internal/splitter/brain_ability_values_by_training_week_20260324
+
+eda:
+  dataset_key: brain_ability_values_by_training_week_20260324
+  output_dir: experiments/eda/brain_ability_values_by_training_week_20260324
+  training_week_thresholds:
+    - 3
+    - 5
+    - 8
+    - 10
+  cognitive_score_columns:
+    - PERCEPTION
+    - ATTENTION
+    - MEMORY
+    - EXECUTIVE_FUNCTION
+  enabled_reports:
+    - dataset_overview
+    - patient_statistics
+    - training_week_statistics
+    - cognitive_score_statistics
+    - missing_values

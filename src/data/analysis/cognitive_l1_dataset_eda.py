@@ -19,8 +19,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from configs.loader import load_config
+from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
+from src.data.dataset_meta import load_column_mapping
 from src.utils.logger import get_logger, setup_logging
-from src.core.raw_training_weekly_cognitive_ability_scores.constants import ColumnName
+from src.utils.path_utils import resolve_project_path
 
 
 # 初始化日志系统
@@ -30,23 +33,36 @@ logger = get_logger(__name__)
 
 # 项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+DEFAULT_ENABLED_REPORTS = {
+    "dataset_overview",
+    "patient_statistics",
+    "training_week_statistics",
+    "cognitive_score_statistics",
+    "missing_values",
+}
 
-# 处理后的数据路径
-DATA_PATH = (
-    BASE_DIR
-    / "data/processed/raw_training_weekly_cognitive_ability_scores/processed.parquet"
-)
 
-# EDA结果输出目录
-OUTPUT_DIR = BASE_DIR / "experiments/eda/raw_training_weekly_cognitive_ability_scores"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+def load_dataset_runtime():
+    config = load_config("configs/config.yaml")
+    eda_config = config["eda"]
+    dataset_key = eda_config["dataset_key"]
+    column_mapping = load_column_mapping(config, dataset_key, BASE_DIR)
+    processed_dir = resolve_project_path(
+        config["raw_to_processed"][dataset_key]["processed"], BASE_DIR
+    )
+    output_dir = resolve_project_path(eda_config["output_dir"], BASE_DIR)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-COGNITIVE_ABILITY_TRAINING = (
-    BASE_DIR / "src" / "core" / "raw_training_weekly_cognitive_ability_scores"
-)
+    return config, eda_config, column_mapping, processed_dir, output_dir
 
-with open(Path(COGNITIVE_ABILITY_TRAINING) / "column_mapping.json") as f:
-    COLUMN_MAPPING = json.load(f)
+
+def resolve_cognitive_score_columns(column_mapping: dict, eda_config: dict) -> list[str]:
+    columns = []
+
+    for column_name in eda_config["cognitive_score_columns"]:
+        columns.append(column_mapping[getattr(ColumnName, column_name).value])
+
+    return columns
 
 
 def dataset_overview(df: pd.DataFrame):
@@ -60,15 +76,15 @@ def dataset_overview(df: pd.DataFrame):
     """
 
     info = {
-        "num_rows": int(df.shape[0]),  # 数据行数
-        "num_columns": int(df.shape[1]),  # 数据列数
-        "columns": df.columns.tolist(),  # 所有列名
+        "num_rows": int(df.shape[0]),
+        "num_columns": int(df.shape[1]),
+        "columns": df.columns.tolist(),
     }
 
     return info
 
 
-def patient_statistics(df: pd.DataFrame):
+def patient_statistics(df: pd.DataFrame, column_mapping: dict):
     """
     患者统计信息
 
@@ -77,10 +93,9 @@ def patient_statistics(df: pd.DataFrame):
     - 性别分布
     """
 
-    patient_id = COLUMN_MAPPING[ColumnName.PATIENT_ID.value]
-    gender = COLUMN_MAPPING[ColumnName.GENDER.value]
+    patient_id = column_mapping[ColumnName.PATIENT_ID.value]
+    gender = column_mapping[ColumnName.GENDER.value]
 
-    # 每个患者只保留一条记录
     patient_df = df[[patient_id, gender]].drop_duplicates(subset=[patient_id])
 
     stats = {
@@ -91,7 +106,7 @@ def patient_statistics(df: pd.DataFrame):
     return stats
 
 
-def training_week_statistics(df: pd.DataFrame):
+def training_week_statistics(df: pd.DataFrame, column_mapping: dict, thresholds: list[int]):
     """
     训练周数统计
 
@@ -99,19 +114,15 @@ def training_week_statistics(df: pd.DataFrame):
     同时统计不同训练时长的患者占比
     """
 
-    patient_id = COLUMN_MAPPING[ColumnName.PATIENT_ID.value]
-    week = COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value]
+    patient_id = column_mapping[ColumnName.PATIENT_ID.value]
+    week = column_mapping[ColumnName.TRAINING_WEEK.value]
 
-    # 删除非法week
     df = df.dropna(subset=[week])
-
-    # 每个患者的训练最大周数
     patient_weeks = df.groupby(patient_id)[week].max()
-
-    # 统计信息
     desc = patient_weeks.describe()
 
     total_patients = int(desc["count"])
+    max_week_distribution = patient_weeks.value_counts().sort_values(ascending=False)
 
     stats = {
         "num_patients": total_patients,
@@ -119,35 +130,28 @@ def training_week_statistics(df: pd.DataFrame):
         "std_training_weeks": round(float(desc["std"]), 2),
         "min_training_weeks": int(desc["min"]),
         "max_training_weeks": int(desc["max"]),
-        # 训练周数达标占比
-        "week_ge_3_ratio": round((patient_weeks >= 3).sum() / total_patients, 2),
-        "week_ge_5_ratio": round((patient_weeks >= 5).sum() / total_patients, 2),
-        "week_ge_8_ratio": round((patient_weeks >= 8).sum() / total_patients, 2),
-        "week_ge_10_ratio": round((patient_weeks >= 10).sum() / total_patients, 2),
+        "max_training_week_distribution": {
+            int(week): {
+                "ratio": round(float(count / total_patients), 4),
+                "count": int(count),
+            }
+            for week, count in max_week_distribution.items()
+        },
     }
+
+    for threshold in thresholds:
+        stats[f"week_ge_{threshold}_ratio"] = round(
+            (patient_weeks >= threshold).sum() / total_patients, 2
+        )
 
     return stats, patient_weeks
 
 
-def cognitive_score_statistics(df: pd.DataFrame):
+def cognitive_score_statistics(df: pd.DataFrame, columns: list[str]):
     """
     认知能力得分统计
-
-    包括：
-    - 感知觉
-    - 注意力
-    - 记忆力
-    - 执行功能
     """
 
-    columns = [
-        COLUMN_MAPPING[ColumnName.PERCEPTION.value],
-        COLUMN_MAPPING[ColumnName.ATTENTION.value],
-        COLUMN_MAPPING[ColumnName.MEMORY.value],
-        COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value],
-    ]
-
-    # describe统计
     stats = df[columns].describe().round(2).to_dict()
 
     return stats
@@ -162,8 +166,6 @@ def missing_value_statistics(df: pd.DataFrame):
     """
 
     missing = df.isnull().sum()
-
-    # 只保留存在缺失值的列
     missing = missing[missing > 0]
 
     return missing.to_dict()
@@ -176,55 +178,55 @@ def run_eda():
 
     logger.info("========== EDA START ==========")
 
-    # 加载数据
-    logger.info(f"Loading dataset: {DATA_PATH}")
+    _, eda_config, column_mapping, processed_dir, output_dir = load_dataset_runtime()
+    data_path = processed_dir / "processed.parquet"
+    enabled_reports = set(eda_config.get("enabled_reports", DEFAULT_ENABLED_REPORTS))
+    thresholds = eda_config.get("training_week_thresholds", [3, 5, 8, 10])
+    score_columns = resolve_cognitive_score_columns(column_mapping, eda_config)
 
-    df = pd.read_parquet(DATA_PATH)
+    logger.info(f"Loading dataset: {data_path}")
+
+    df = pd.read_parquet(data_path)
 
     logger.info(f"Dataset shape: {df.shape}")
 
-    # 保存分析结果
     report = {}
+    patient_weeks = None
 
-    # 数据集概览
-    logger.info("Running dataset overview analysis")
-    report["dataset_overview"] = dataset_overview(df)
+    if "dataset_overview" in enabled_reports:
+        logger.info("Running dataset overview analysis")
+        report["dataset_overview"] = dataset_overview(df)
 
-    # 患者统计
-    logger.info("Running patient statistics analysis")
-    report["patient_statistics"] = patient_statistics(df)
+    if "patient_statistics" in enabled_reports:
+        logger.info("Running patient statistics analysis")
+        report["patient_statistics"] = patient_statistics(df, column_mapping)
 
-    # 训练周数统计
-    logger.info("Running training week statistics analysis")
-    week_stats, patient_weeks = training_week_statistics(df)
+    if "training_week_statistics" in enabled_reports:
+        logger.info("Running training week statistics analysis")
+        week_stats, patient_weeks = training_week_statistics(df, column_mapping, thresholds)
+        report["training_week_statistics"] = week_stats
 
-    report["training_week_statistics"] = week_stats
+    if "cognitive_score_statistics" in enabled_reports:
+        logger.info("Running cognitive ability statistics analysis")
+        report["cognitive_score_statistics"] = cognitive_score_statistics(df, score_columns)
 
-    # 认知能力统计
-    logger.info("Running cognitive ability statistics analysis")
-    report["cognitive_score_statistics"] = cognitive_score_statistics(df)
+    if "missing_values" in enabled_reports:
+        logger.info("Running missing value analysis")
+        report["missing_values"] = missing_value_statistics(df)
 
-    # 缺失值统计
-    logger.info("Running missing value analysis")
-    report["missing_values"] = missing_value_statistics(df)
-
-    # 保存 EDA JSON 报告
-    report_path = OUTPUT_DIR / "eda_report.json"
+    report_path = output_dir / "eda_report.json"
 
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=4, ensure_ascii=False)
 
     logger.info(f"EDA report saved to: {report_path}")
 
-    # 保存每个患者训练周数（CSV格式）
-    weeks_path = OUTPUT_DIR / "patient_training_weeks.csv"
-
-    patient_weeks_df = patient_weeks.reset_index()
-    patient_weeks_df.columns = ["patient_id", "max_training_week"]
-
-    patient_weeks_df.to_csv(weeks_path, index=False)
-
-    logger.info(f"Patient training weeks saved to: {weeks_path}")
+    if patient_weeks is not None:
+        weeks_path = output_dir / "patient_training_weeks.csv"
+        patient_weeks_df = patient_weeks.reset_index()
+        patient_weeks_df.columns = ["patient_id", "max_training_week"]
+        patient_weeks_df.to_csv(weeks_path, index=False)
+        logger.info(f"Patient training weeks saved to: {weeks_path}")
 
 
 if __name__ == "__main__":
