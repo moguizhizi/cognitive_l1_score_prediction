@@ -3,6 +3,9 @@
 """
 cognitive_l1 数据集划分模块
 
+该脚本默认承接 `src/data/datasets/cognitive_l1_dataset.py` 生成的
+processed parquet，并复用同一套 config 和列映射配置。
+
 划分规则：
 
 第一步：
@@ -19,25 +22,34 @@ cognitive_l1 数据集划分模块
 剩余数据作为训练集
 """
 
-import pandas as pd
-import json
 from pathlib import Path
 
-from src.core.raw_training_weekly_cognitive_ability_scores.constants import ColumnName
+import pandas as pd
+
+from configs.loader import load_config
+from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
+from src.core.constants import CognitiveL1DatasetName
+from src.data.dataset_meta import load_column_mapping
 from src.utils.logger import get_logger, setup_logging
+from src.utils.path_utils import resolve_project_path
 
 # 初始化日志系统
 setup_logging()
 
 logger = get_logger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-COGNITIVE_ABILITY_TRAINING = (
-    BASE_DIR / "core" / "raw_training_weekly_cognitive_ability_scores"
-)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+DATASET_KEY = CognitiveL1DatasetName.WEEKLY_BRAIN_ABILITY.value
 
-with open(Path(COGNITIVE_ABILITY_TRAINING) / "column_mapping.json") as f:
-    COLUMN_MAPPING = json.load(f)
+
+def load_dataset_runtime():
+    config = load_config("configs/config.yaml")
+    column_mapping = load_column_mapping(config, DATASET_KEY, BASE_DIR)
+    split_config = config["processed_to_splitter"][DATASET_KEY]
+    processed_dir = resolve_project_path(split_config["processed"], BASE_DIR)
+    splitter_dir = resolve_project_path(split_config["splitter"], BASE_DIR)
+
+    return config, column_mapping, processed_dir, splitter_dir
 
 
 def split_cognitive_l1_dataset(df: pd.DataFrame, column_mapping: dict):
@@ -74,12 +86,12 @@ def split_cognitive_l1_dataset(df: pd.DataFrame, column_mapping: dict):
     test_list = []
     val_list = []
 
-    long_training_patients = patient_max_week[patient_max_week >= 10]
+    long_training_patients = patient_max_week[patient_max_week >= 10].index
 
     logger.info(f"Patients with >=10 weeks training: {len(long_training_patients)}")
 
-    for pid, max_week in long_training_patients.items():
-
+    for pid in long_training_patients:
+        max_week = patient_max_week.loc[pid]
         patient_df = df[df[patient_id] == pid]
 
         # test: 最近四周
@@ -123,36 +135,32 @@ def split_cognitive_l1_dataset(df: pd.DataFrame, column_mapping: dict):
 
 
 def main():
+    _, column_mapping, processed_dir, splitter_dir = load_dataset_runtime()
+    data_path = processed_dir / "processed.parquet"
 
-    DATA_PATH = Path(
-        "data/processed/raw_training_weekly_cognitive_ability_scores/processed.parquet"
-    )
+    splitter_dir.mkdir(parents=True, exist_ok=True)
 
-    OUTPUT_DIR = Path("data/splitter/raw_training_weekly_cognitive_ability_scores")
+    logger.info(f"Loading dataset: {data_path}")
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    logger.info(f"Loading dataset: {DATA_PATH}")
-
-    df = pd.read_parquet(DATA_PATH)
+    df = pd.read_parquet(data_path)
 
     logger.info(f"Dataset shape: {df.shape}")
 
-    train_df, val_df, test_df = split_cognitive_l1_dataset(df, COLUMN_MAPPING)
+    train_df, val_df, test_df = split_cognitive_l1_dataset(df, column_mapping)
 
     # 保存 CSV（用于 head 查看）
-    train_csv = OUTPUT_DIR / "train.csv"
-    val_csv = OUTPUT_DIR / "val.csv"
-    test_csv = OUTPUT_DIR / "test.csv"
+    train_csv = splitter_dir / "train.csv"
+    val_csv = splitter_dir / "val.csv"
+    test_csv = splitter_dir / "test.csv"
 
     train_df.to_csv(train_csv, index=False)
     val_df.to_csv(val_csv, index=False)
     test_df.to_csv(test_csv, index=False)
 
     # 保存 Parquet
-    train_parquet = OUTPUT_DIR / "train.parquet"
-    val_parquet = OUTPUT_DIR / "val.parquet"
-    test_parquet = OUTPUT_DIR / "test.parquet"
+    train_parquet = splitter_dir / "train.parquet"
+    val_parquet = splitter_dir / "val.parquet"
+    test_parquet = splitter_dir / "test.parquet"
 
     train_df.to_parquet(train_parquet, index=False)
     val_df.to_parquet(val_parquet, index=False)
@@ -161,6 +169,7 @@ def main():
     logger.info(f"Train CSV saved: {train_csv}")
     logger.info(f"Val CSV saved: {val_csv}")
     logger.info(f"Test CSV saved: {test_csv}")
+    
 
     logger.info(f"Train Parquet saved: {train_parquet}")
     logger.info(f"Val Parquet saved: {val_parquet}")

@@ -46,3 +46,10 @@ raw_to_processed:
 
     raw: data/internal/raw/brain_ability_values_by_training_week_20260324
     processed: data/internal/processed/brain_ability_values_by_training_week_20260324
+
+processed_to_splitter:
+
+  brain_ability_values_by_training_week_20260324:
+
+    processed: data/internal/processed/brain_ability_values_by_training_week_20260324
+    splitter: data/internal/splitter/brain_ability_values_by_training_week_20260324
