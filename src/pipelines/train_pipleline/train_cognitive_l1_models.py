@@ -4,12 +4,12 @@ from pathlib import Path
 import pandas as pd
 
 from configs.loader import load_config
+from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
 from src.core.constants import CognitiveL1DatasetName
-from src.data.dataset_meta import load_column_mapping
+from src.data.dataset_meta import build_column_accessor, load_column_mapping
 from src.pipelines.train_pipleline.cognitive_l1 import train_pipeline
 from src.utils.logger import get_logger, setup_logging
 from src.utils.path_utils import resolve_project_path
-from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
 
 # 初始化日志系统
 setup_logging()
@@ -26,30 +26,29 @@ def load_training_runtime():
 
     dataset_key = train_config.get('dataset_key', DEFAULT_DATASET_KEY)
     column_mapping = load_column_mapping(app_config, dataset_key, BASE_DIR)
+    cols = build_column_accessor(column_mapping, ColumnName)
     data_dir = resolve_project_path(train_config['split_dir'], BASE_DIR)
     model_dir = resolve_project_path(train_config['checkpoint_dir'], BASE_DIR)
     feature_columns_filename = train_config.get('feature_columns_filename', 'feature_columns.json')
 
-    return train_config, column_mapping, data_dir, model_dir, feature_columns_filename
+    return train_config, cols, data_dir, model_dir, feature_columns_filename
 
 
-def resolve_target_columns(column_mapping: dict) -> list[str]:
+def resolve_target_columns(cols) -> list[str]:
     return [
-        column_mapping[ColumnName.PERCEPTION.value],
-        column_mapping[ColumnName.ATTENTION.value],
-        column_mapping[ColumnName.MEMORY.value],
-        column_mapping[ColumnName.EXECUTIVE_FUNCTION.value],
+        cols.perception,
+        cols.attention,
+        cols.memory,
+        cols.executive_function,
     ]
 
 
-def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, column_mapping: dict):
+def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, cols):
     logger.info('Training all cognitive models')
 
     models = {}
     feature_dict = {}
-    target_cols = resolve_target_columns(column_mapping)
-    user_col = column_mapping[ColumnName.PATIENT_ID.value]
-    time_col = column_mapping[ColumnName.TRAINING_WEEK.value]
+    target_cols = resolve_target_columns(cols)
 
     for target in target_cols:
         logger.info(f'Training target: {target}')
@@ -57,8 +56,8 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, column_mappin
         model, feature_cols = train_pipeline(
             train_df,
             val_df,
-            user_col=user_col,
-            time_col=time_col,
+            user_col=cols.patient_id,
+            time_col=cols.training_week,
             target=target,
         )
 
@@ -73,7 +72,7 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, column_mappin
 def main():
     logger.info('Start cognitive ability model training')
 
-    _, column_mapping, data_dir, model_dir, feature_columns_filename = load_training_runtime()
+    _, cols, data_dir, model_dir, feature_columns_filename = load_training_runtime()
 
     train_path = data_dir / 'train.parquet'
     val_path = data_dir / 'val.parquet'
@@ -87,7 +86,7 @@ def main():
     logger.info(f'Train shape: {train_df.shape}')
     logger.info(f'Val shape: {val_df.shape}')
 
-    models, feature_dict = train_all_models(train_df, val_df, column_mapping)
+    models, feature_dict = train_all_models(train_df, val_df, cols)
 
     model_dir.mkdir(parents=True, exist_ok=True)
 
