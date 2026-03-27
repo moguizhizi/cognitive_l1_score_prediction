@@ -63,10 +63,11 @@ def build_training_data(
 
         for i in range(min_history_len, len(values) - 1):
             max_available_history = min(max_history_len, i)
-            if randomize_history_len:
-                hist_len = random.randint(min_history_len, max_available_history)
-            else:
-                hist_len = max_available_history
+            hist_len = (
+                random.randint(min_history_len, max_available_history)
+                if randomize_history_len
+                else max_available_history
+            )
 
             history = values[i - hist_len:i].copy()
 
@@ -93,7 +94,41 @@ def build_training_data(
     return feature_df, y, feature_df.columns.tolist()
 
 
-def build_validation_data(
+def recursive_forecast(
+    model,
+    history: list[float],
+    current: float,
+    steps: int,
+    clip_min: float,
+    clip_max: float,
+    max_history_len: int,
+) -> list[float]:
+    history = history.copy()
+    preds = []
+    current_value = float(current)
+
+    for _ in range(steps):
+        effective_history = history[-max_history_len:]
+
+        feats = build_features(effective_history)
+        feats['hist_len'] = len(effective_history)
+        feats['current'] = current_value
+
+        X = pd.DataFrame([feats])
+        delta = model.predict(X)[0]
+        delta = np.clip(delta, clip_min, clip_max)
+
+        next_value = current_value + delta
+        preds.append(float(next_value))
+
+        history.append(float(current_value))
+        current_value = float(next_value)
+
+    return preds
+
+
+def evaluate_recursive_validation(
+    model,
     df: pd.DataFrame,
     user_col: str,
     time_col: str,
@@ -101,47 +136,65 @@ def build_validation_data(
     min_history_len: int,
     max_history_len: int,
     validation_horizon_weeks: int,
+    clip_min: float,
+    clip_max: float,
 ):
-    """
-    为验证集构建样本。
-
-    每个样本包含三段：
-    1. history
-    2. current
-    3. 后续 validation_horizon_weeks 周数据
-
-    y_val 取这段 validation_horizon_weeks 之后的真实数值。
-    """
-
     df = df.sort_values([user_col, time_col])
-    rows = []
+    predictions = []
+    targets = []
+    horizon_predictions = []
+    horizon_targets = []
+    sequence_count = 0
 
     for _, user_df in df.groupby(user_col):
         values = user_df[value_col].values.astype(float)
-
-        min_required_len = min_history_len + validation_horizon_weeks + 1
-        if len(values) < min_required_len:
+        if len(values) < min_history_len + validation_horizon_weeks + 1:
             continue
 
         for i in range(min_history_len, len(values) - validation_horizon_weeks):
             hist_len = min(max_history_len, i)
-            history = values[i - hist_len:i].copy()
-            current = values[i]
-            target_value = values[i + validation_horizon_weeks]
+            history = values[i - hist_len:i].tolist()
+            current = float(values[i])
+            actual_future = values[i + 1 : i + 1 + validation_horizon_weeks].tolist()
 
-            feats = build_features(history)
-            feats['hist_len'] = hist_len
-            feats['current'] = current
-            feats['_target'] = target_value
-            rows.append(feats)
+            pred_future = recursive_forecast(
+                model=model,
+                history=history,
+                current=current,
+                steps=validation_horizon_weeks,
+                clip_min=clip_min,
+                clip_max=clip_max,
+                max_history_len=max_history_len,
+            )
 
-    if not rows:
-        return pd.DataFrame(), pd.Series(dtype='float64'), []
+            predictions.extend(pred_future)
+            targets.extend(actual_future)
+            horizon_predictions.append(pred_future[-1])
+            horizon_targets.append(actual_future[-1])
+            sequence_count += 1
 
-    feature_df = pd.DataFrame(rows)
-    y = feature_df.pop('_target')
+    if not predictions:
+        return None
 
-    return feature_df, y, feature_df.columns.tolist()
+    rmse = np.sqrt(mean_squared_error(targets, predictions))
+    mae = mean_absolute_error(targets, predictions)
+    horizon_rmse = np.sqrt(mean_squared_error(horizon_targets, horizon_predictions))
+    horizon_mae = mean_absolute_error(horizon_targets, horizon_predictions)
+    horizon_relative_error = np.mean(
+        np.abs(np.array(horizon_predictions) - np.array(horizon_targets))
+        / np.maximum(np.abs(np.array(horizon_targets)), 1e-8)
+    )
+    horizon_accuracy = max(0.0, 1.0 - float(horizon_relative_error))
+
+    return {
+        'sequence_count': sequence_count,
+        'point_count': len(predictions),
+        'RMSE': rmse,
+        'MAE': mae,
+        'horizon_rmse': horizon_rmse,
+        'horizon_mae': horizon_mae,
+        'horizon_accuracy': horizon_accuracy,
+    }
 
 
 def train_pipeline(
@@ -165,6 +218,8 @@ def train_pipeline(
     noise_prob = training_data_params.get('noise_prob', 0.3)
     noise_std = training_data_params.get('noise_std', 0.5)
     validation_horizon_weeks = training_data_params.get('validation_horizon_weeks', 12)
+    recursive_clip_min = training_data_params.get('recursive_clip_min', -5)
+    recursive_clip_max = training_data_params.get('recursive_clip_max', 10)
 
     logger.info(f'Model name: {model_name}')
     logger.info(f'Model params: {model_params}')
@@ -185,50 +240,44 @@ def train_pipeline(
         add_noise=True,
     )
 
-    X_val, y_val, _ = build_validation_data(
-        val_df,
-        user_col=user_col,
-        time_col=time_col,
-        value_col=target,
-        min_history_len=min_history_len,
-        max_history_len=max_history_len,
-        validation_horizon_weeks=validation_horizon_weeks,
-    )
-
     logger.info(f'Training samples: {len(X_train)}')
-    logger.info(f'Validation samples: {len(X_val)}')
     logger.info(f'Feature count: {len(feature_cols)}')
 
     if X_train.empty or y_train.empty:
         raise ValueError(f'No training samples generated for target: {target}')
-
-    if X_val.empty or y_val.empty:
-        logger.warning(f'No validation samples generated for target: {target}')
-        X_val = None
-        y_val = None
-    elif feature_cols:
-        X_val = X_val.reindex(columns=feature_cols, fill_value=0.0)
 
     logger.info('Building model...')
 
     model = build_model(model_name=model_name, params=model_params)
     trainer = Trainer(model)
 
-    val_pred = trainer.fit(
-        X_train,
-        y_train,
-        X_val,
-        y_val,
+    trainer.fit(X_train, y_train)
+
+    recursive_metrics = evaluate_recursive_validation(
+        model=model,
+        df=val_df,
+        user_col=user_col,
+        time_col=time_col,
+        value_col=target,
+        min_history_len=min_history_len,
+        max_history_len=max_history_len,
+        validation_horizon_weeks=validation_horizon_weeks,
+        clip_min=recursive_clip_min,
+        clip_max=recursive_clip_max,
     )
 
-    if val_pred is not None and y_val is not None:
-        rmse = np.sqrt(mean_squared_error(y_val, val_pred))
-        mae = mean_absolute_error(y_val, val_pred)
-
-        logger.info('Validation Result')
-        logger.info(f'RMSE: {rmse:.4f}')
-        logger.info(f'MAE : {mae:.4f}')
+    if recursive_metrics is None:
+        logger.warning(f'No recursive validation samples generated for target: {target}')
+    else:
+        logger.info('Recursive Validation Result')
+        logger.info(f"Sequences: {recursive_metrics['sequence_count']}")
+        logger.info(f"Points: {recursive_metrics['point_count']}")
+        logger.info(f"RMSE: {recursive_metrics['RMSE']:.4f}")
+        logger.info(f"MAE : {recursive_metrics['MAE']:.4f}")
+        logger.info(f"Horizon RMSE: {recursive_metrics['horizon_rmse']:.4f}")
+        logger.info(f"Horizon MAE : {recursive_metrics['horizon_mae']:.4f}")
+        logger.info(f"Horizon Accuracy: {recursive_metrics['horizon_accuracy']:.4f}")
 
     logger.info(f'{target} model training finished')
 
-    return model, feature_cols
+    return model, feature_cols, recursive_metrics
