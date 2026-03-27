@@ -82,6 +82,7 @@ train:
   dataset_key: brain_ability_values_by_training_week_20260324
   split_dir: data/internal/splitter/brain_ability_values_by_training_week_20260324
   checkpoint_dir: checkpoints/cognitive_l1
+  experiment_dir: experiments/train/cognitive_l1
   feature_columns_filename: feature_columns.json
   model_name: lightgbm
 

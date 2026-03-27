@@ -280,4 +280,4 @@ def train_pipeline(
 
     logger.info(f'{target} model training finished')
 
-    return model, feature_cols
+    return model, feature_cols, recursive_metrics

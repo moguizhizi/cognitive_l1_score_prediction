@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -29,9 +30,13 @@ def load_training_runtime():
     cols = build_column_accessor(column_mapping, ColumnName)
     data_dir = resolve_project_path(train_config['split_dir'], BASE_DIR)
     model_dir = resolve_project_path(train_config['checkpoint_dir'], BASE_DIR)
+    experiment_dir = resolve_project_path(
+        train_config.get('experiment_dir', 'experiments/train/cognitive_l1'),
+        BASE_DIR,
+    )
     feature_columns_filename = train_config.get('feature_columns_filename', 'feature_columns.json')
 
-    return train_config, cols, data_dir, model_dir, feature_columns_filename
+    return train_config, cols, data_dir, model_dir, experiment_dir, feature_columns_filename
 
 
 def resolve_target_columns(cols) -> list[str]:
@@ -48,12 +53,13 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, cols):
 
     models = {}
     feature_dict = {}
+    metrics_dict = {}
     target_cols = resolve_target_columns(cols)
 
     for target in target_cols:
         logger.info(f'Training target: {target}')
 
-        model, feature_cols = train_pipeline(
+        model, feature_cols, recursive_metrics = train_pipeline(
             train_df,
             val_df,
             user_col=cols.patient_id,
@@ -63,16 +69,53 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, cols):
 
         models[target] = model
         feature_dict[target] = feature_cols
+        metrics_dict[target] = recursive_metrics
 
     logger.info('All models trained successfully')
 
-    return models, feature_dict
+    return models, feature_dict, metrics_dict
+
+
+def build_training_summary(
+    train_config: dict,
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    feature_dict: dict,
+    metrics_dict: dict,
+) -> dict:
+    return {
+        'generated_at': datetime.now().isoformat(),
+        'config': train_config,
+        'data_summary': {
+            'train_shape': [int(train_df.shape[0]), int(train_df.shape[1])],
+            'val_shape': [int(val_df.shape[0]), int(val_df.shape[1])],
+        },
+        'targets': {
+            target: {
+                'feature_count': len(feature_cols),
+                'feature_columns': feature_cols,
+                'recursive_validation_metrics': metrics_dict.get(target),
+            }
+            for target, feature_cols in feature_dict.items()
+        },
+    }
+
+
+def save_training_summary(summary: dict, experiment_dir: Path) -> Path:
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    summary_path = experiment_dir / f'training_summary_{timestamp}.json'
+
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        json.dump(summary, f, indent=4, ensure_ascii=False)
+
+    return summary_path
 
 
 def main():
     logger.info('Start cognitive ability model training')
 
-    _, cols, data_dir, model_dir, feature_columns_filename = load_training_runtime()
+    train_config, cols, data_dir, model_dir, experiment_dir, feature_columns_filename = load_training_runtime()
 
     train_path = data_dir / 'train.parquet'
     val_path = data_dir / 'val.parquet'
@@ -86,7 +129,7 @@ def main():
     logger.info(f'Train shape: {train_df.shape}')
     logger.info(f'Val shape: {val_df.shape}')
 
-    models, feature_dict = train_all_models(train_df, val_df, cols)
+    models, feature_dict, metrics_dict = train_all_models(train_df, val_df, cols)
 
     model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,6 +143,16 @@ def main():
         json.dump(feature_dict, f, indent=4, ensure_ascii=False)
 
     logger.info(f'Feature columns saved: {feature_path}')
+
+    summary = build_training_summary(
+        train_config=train_config,
+        train_df=train_df,
+        val_df=val_df,
+        feature_dict=feature_dict,
+        metrics_dict=metrics_dict,
+    )
+    summary_path = save_training_summary(summary, experiment_dir)
+    logger.info(f'Training summary saved: {summary_path}')
     logger.info('Training finished successfully')
 
 
