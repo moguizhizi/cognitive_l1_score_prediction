@@ -22,7 +22,7 @@ import pandas as pd
 from configs.loader import load_config
 from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
 from src.core.constants import CognitiveL1DatasetName
-from src.data.dataset_meta import load_column_mapping
+from src.data.dataset_meta import build_column_accessor, load_column_mapping
 from src.utils.logger import get_logger, setup_logging
 from src.utils.path_utils import resolve_project_path
 
@@ -47,7 +47,7 @@ def load_dataset_runtime():
 
 def split_cognitive_l1_dataset(
     df: pd.DataFrame,
-    column_mapping: dict,
+    cols,
     valid_patient_min_weeks: int,
     recent_valid_weeks: int,
 ):
@@ -61,8 +61,8 @@ def split_cognitive_l1_dataset(
     4. 再对训练集进行过滤，仅保留训练记录数 >= valid_patient_min_weeks 的患者
     """
 
-    patient_id = column_mapping[ColumnName.PATIENT_ID.value]
-    week = column_mapping[ColumnName.TRAINING_WEEK.value]
+    patient_id = cols.patient_id
+    week = cols.training_week
 
     logger.info("Starting dataset split")
 
@@ -136,6 +136,7 @@ def split_cognitive_l1_dataset(
 
 def main():
     _, column_mapping, processed_dir, splitter_dir, split_config = load_dataset_runtime()
+    cols = build_column_accessor(column_mapping, ColumnName)
     valid_patient_min_weeks = split_config.get("valid_patient_min_weeks", 5)
     recent_valid_weeks = split_config.get("recent_valid_weeks", 24)
     data_path = processed_dir / "processed.parquet"
@@ -155,7 +156,7 @@ def main():
 
     train_df, val_df = split_cognitive_l1_dataset(
         df,
-        column_mapping,
+        cols,
         valid_patient_min_weeks=valid_patient_min_weeks,
         recent_valid_weeks=recent_valid_weeks,
     )
