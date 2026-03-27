@@ -5,6 +5,7 @@ import json
 import joblib
 from datetime import datetime
 from src.core.raw_training_weekly_cognitive_ability_scores.constants import ColumnName
+from src.data.dataset_meta import build_column_accessor
 from src.features.time_series_features import build_features
 from src.models.model_factory import build_model
 from src.utils.logger import get_logger, setup_logging
@@ -30,11 +31,13 @@ COGNITIVE_ABILITY_TRAINING = (
 with open(Path(COGNITIVE_ABILITY_TRAINING) / "column_mapping.json") as f:
     COLUMN_MAPPING = json.load(f)
 
+cols = build_column_accessor(COLUMN_MAPPING, ColumnName)
+
 TARGET_COLS = [
-    COLUMN_MAPPING[ColumnName.PERCEPTION.value],
-    COLUMN_MAPPING[ColumnName.ATTENTION.value],
-    COLUMN_MAPPING[ColumnName.MEMORY.value],
-    COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value],
+    cols.perception,
+    cols.attention,
+    cols.memory,
+    cols.executive_function,
 ]
 
 
@@ -48,7 +51,7 @@ def predict_next_week(model, df_user: pd.DataFrame, score_col: str):
     logger.debug(f"Input user dataframe shape: {df_user.shape}")
 
     df_user = df_user.sort_values(
-        COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value], ascending=True
+        cols.training_week, ascending=True
     )
 
     if len(df_user) < 1:
@@ -116,7 +119,7 @@ def evaluate_model(
     predictions = []
     targets = []
 
-    user_ids = df[COLUMN_MAPPING[ColumnName.PATIENT_ID.value]].unique()
+    user_ids = df[cols.patient_id].unique()
 
     logger.info(f"Total users for evaluation: {len(user_ids)}")
 
@@ -125,8 +128,8 @@ def evaluate_model(
     for user_id in user_ids:
 
         df_user = df[
-            df[COLUMN_MAPPING[ColumnName.PATIENT_ID.value]] == user_id
-        ].sort_values(COLUMN_MAPPING[ColumnName.TRAINING_WEEK.value], ascending=True)
+            df[cols.patient_id] == user_id
+        ].sort_values(cols.training_week, ascending=True)
 
         # 至少需要2周数据，才能构建“历史 -> 当前周”的评估样本
         if len(df_user) < 2:
@@ -209,14 +212,10 @@ def main():
     checkpoint_dir = BASE_DIR / "checkpoints" / "cognitive_l1"
 
     model_paths = {
-        COLUMN_MAPPING[ColumnName.PERCEPTION.value]: checkpoint_dir
-        / f"{COLUMN_MAPPING[ColumnName.PERCEPTION.value]}_lightgbm.txt",
-        COLUMN_MAPPING[ColumnName.ATTENTION.value]: checkpoint_dir
-        / f"{COLUMN_MAPPING[ColumnName.ATTENTION.value]}_lightgbm.txt",
-        COLUMN_MAPPING[ColumnName.MEMORY.value]: checkpoint_dir
-        / f"{COLUMN_MAPPING[ColumnName.MEMORY.value]}_lightgbm.txt",
-        COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]: checkpoint_dir
-        / f"{COLUMN_MAPPING[ColumnName.EXECUTIVE_FUNCTION.value]}_lightgbm.txt",
+        cols.perception: checkpoint_dir / f"{cols.perception}_lightgbm.txt",
+        cols.attention: checkpoint_dir / f"{cols.attention}_lightgbm.txt",
+        cols.memory: checkpoint_dir / f"{cols.memory}_lightgbm.txt",
+        cols.executive_function: checkpoint_dir / f"{cols.executive_function}_lightgbm.txt",
     }
 
     # ==========================
