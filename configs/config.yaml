@@ -51,6 +51,8 @@ processed_to_splitter:
 
     processed: data/internal/processed/brain_ability_values_by_training_week_20260324
     splitter: data/internal/splitter/brain_ability_values_by_training_week_20260324
+    valid_patient_min_weeks: 5
+    recent_valid_weeks: 24
 
 eda:
   dataset_key: brain_ability_values_by_training_week_20260324
