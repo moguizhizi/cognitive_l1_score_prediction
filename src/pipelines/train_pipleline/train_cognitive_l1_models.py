@@ -22,7 +22,7 @@ DEFAULT_DATASET_KEY = CognitiveL1DatasetName.WEEKLY_BRAIN_ABILITY.value
 
 def load_training_runtime():
     app_config = load_config('configs/config.yaml')
-    train_config = load_config('configs/train.yaml')
+    train_config = app_config.get('train', {})
 
     dataset_key = train_config.get('dataset_key', DEFAULT_DATASET_KEY)
     column_mapping = load_column_mapping(app_config, dataset_key, BASE_DIR)

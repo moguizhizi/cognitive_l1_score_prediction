@@ -74,3 +74,30 @@ eda:
     - training_week_statistics
     - cognitive_score_statistics
     - missing_values
+
+# ==============================
+# 以下原为 train.yaml 内容
+# ==============================
+train:
+  dataset_key: brain_ability_values_by_training_week_20260324
+  split_dir: data/internal/splitter/brain_ability_values_by_training_week_20260324
+  checkpoint_dir: checkpoints/cognitive_l1
+  feature_columns_filename: feature_columns.json
+  model_name: lightgbm
+
+  training_data_params:
+    min_history_len: 3
+    max_history_len: 12
+    noise_prob: 0.3
+    noise_std: 0.5
+    validation_horizon_weeks: 12
+
+  model_params:
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: -1           # 不限制深度
+    min_data_in_leaf: 10    # 叶子节点最小样本数
+    min_gain_to_split: 0    # 最小分裂增益
+    subsample: 0.8
+    colsample_bytree: 0.8
+
