@@ -140,9 +140,9 @@ def training_week_statistics(df: pd.DataFrame, column_mapping: dict, thresholds:
     }
 
     for threshold in thresholds:
-        stats[f"week_ge_{threshold}_ratio"] = round(
-            (patient_weeks >= threshold).sum() / total_patients, 2
-        )
+        matched_count = int((patient_weeks >= threshold).sum())
+        stats[f"week_ge_{threshold}_ratio"] = round(matched_count / total_patients, 2)
+        stats[f"week_ge_{threshold}_count"] = matched_count
 
     return stats, patient_weeks
 

@@ -60,6 +60,7 @@ eda:
     - 5
     - 8
     - 10
+    - 24
   cognitive_score_columns:
     - PERCEPTION
     - ATTENTION
