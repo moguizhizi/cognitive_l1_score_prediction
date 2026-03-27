@@ -8,8 +8,7 @@ cognitive_l1_score_prediction/
 ├── configs/  # 配置文件目录
 │   ├── __init__.py
 │   ├── config.yaml
-│   ├── loader.py
-│   └── train.yaml
+│   └── loader.py
 ├── src/  # 核心源码
 │   ├── __init__.py
 │   ├── core/  # 项目核心定义：全局常量、枚举、数据Schema等

@@ -153,7 +153,8 @@ def train_pipeline(
 ):
     logger.info(f'Start training pipeline for target: {target}')
 
-    config = load_config('configs/train.yaml')
+    app_config = load_config('configs/config.yaml')
+    config = app_config.get('train', {})
 
     model_name = config['model_name']
     model_params = config.get('model_params', {})
