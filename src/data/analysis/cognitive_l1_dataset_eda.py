@@ -21,7 +21,7 @@ import pandas as pd
 
 from configs.loader import load_config
 from src.core.brain_ability_values_by_training_week_20260324.constants import ColumnName
-from src.data.dataset_meta import load_column_mapping
+from src.data.dataset_meta import build_column_accessor, load_column_mapping
 from src.utils.logger import get_logger, setup_logging
 from src.utils.path_utils import resolve_project_path
 
@@ -56,11 +56,11 @@ def load_dataset_runtime():
     return config, eda_config, column_mapping, processed_dir, output_dir
 
 
-def resolve_cognitive_score_columns(column_mapping: dict, eda_config: dict) -> list[str]:
+def resolve_cognitive_score_columns(cols, eda_config: dict) -> list[str]:
     columns = []
 
     for column_name in eda_config["cognitive_score_columns"]:
-        columns.append(column_mapping[getattr(ColumnName, column_name).value])
+        columns.append(getattr(cols, column_name.lower()))
 
     return columns
 
@@ -84,7 +84,7 @@ def dataset_overview(df: pd.DataFrame):
     return info
 
 
-def patient_statistics(df: pd.DataFrame, column_mapping: dict):
+def patient_statistics(df: pd.DataFrame, cols):
     """
     患者统计信息
 
@@ -93,8 +93,8 @@ def patient_statistics(df: pd.DataFrame, column_mapping: dict):
     - 性别分布
     """
 
-    patient_id = column_mapping[ColumnName.PATIENT_ID.value]
-    gender = column_mapping[ColumnName.GENDER.value]
+    patient_id = cols.patient_id
+    gender = cols.gender
 
     patient_df = df[[patient_id, gender]].drop_duplicates(subset=[patient_id])
 
@@ -106,7 +106,7 @@ def patient_statistics(df: pd.DataFrame, column_mapping: dict):
     return stats
 
 
-def training_week_statistics(df: pd.DataFrame, column_mapping: dict, thresholds: list[int]):
+def training_week_statistics(df: pd.DataFrame, cols, thresholds: list[int]):
     """
     训练周数统计
 
@@ -114,8 +114,8 @@ def training_week_statistics(df: pd.DataFrame, column_mapping: dict, thresholds:
     同时统计不同训练时长的患者占比
     """
 
-    patient_id = column_mapping[ColumnName.PATIENT_ID.value]
-    week = column_mapping[ColumnName.TRAINING_WEEK.value]
+    patient_id = cols.patient_id
+    week = cols.training_week
 
     df = df.dropna(subset=[week])
     patient_weeks = df.groupby(patient_id)[week].max()
@@ -179,10 +179,11 @@ def run_eda():
     logger.info("========== EDA START ==========")
 
     _, eda_config, column_mapping, processed_dir, output_dir = load_dataset_runtime()
+    cols = build_column_accessor(column_mapping, ColumnName)
     data_path = processed_dir / "processed.parquet"
     enabled_reports = set(eda_config.get("enabled_reports", DEFAULT_ENABLED_REPORTS))
     thresholds = eda_config.get("training_week_thresholds", [3, 5, 8, 10])
-    score_columns = resolve_cognitive_score_columns(column_mapping, eda_config)
+    score_columns = resolve_cognitive_score_columns(cols, eda_config)
 
     logger.info(f"Loading dataset: {data_path}")
 
@@ -199,11 +200,11 @@ def run_eda():
 
     if "patient_statistics" in enabled_reports:
         logger.info("Running patient statistics analysis")
-        report["patient_statistics"] = patient_statistics(df, column_mapping)
+        report["patient_statistics"] = patient_statistics(df, cols)
 
     if "training_week_statistics" in enabled_reports:
         logger.info("Running training week statistics analysis")
-        week_stats, patient_weeks = training_week_statistics(df, column_mapping, thresholds)
+        week_stats, patient_weeks = training_week_statistics(df, cols, thresholds)
         report["training_week_statistics"] = week_stats
 
     if "cognitive_score_statistics" in enabled_reports:
