@@ -92,3 +92,21 @@ cognitive_l1_score_prediction/
     └── test_metrics.py
 ```
 <!-- CODE_TREE_END -->
+
+## 自动 PR Review
+
+仓库已配置 GitHub Actions 工作流 [`openai-pr-review.yml`](./.github/workflows/openai-pr-review.yml)。当 PR 被创建、重新打开、更新提交或从 draft 转为 ready for review 时，会自动触发一次 AI 代码审查。
+
+### 需要的仓库配置
+
+在 GitHub 仓库中新增以下 Secret / Variable：
+
+- `OPENAI_API_KEY`: OpenAI API Key，用于调用自动审查模型
+- `OPENAI_REVIEW_MODEL`: 可选的仓库 Variable，默认值为 `gpt-5`
+
+### 工作方式
+
+- 触发事件：`pull_request_target` 的 `opened`、`reopened`、`synchronize`、`ready_for_review`
+- 工作流不会执行 PR 分支里的代码，只会读取 GitHub PR 元数据和 diff
+- 审查结果会以 GitHub PR review comment 的形式回写到对应 PR
+- 草稿 PR 不会触发自动 review
