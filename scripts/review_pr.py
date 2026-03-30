@@ -27,6 +27,10 @@ def require_env(name: str) -> str:
     return value
 
 
+def optional_env(name: str) -> str:
+    return os.getenv(name, "").strip()
+
+
 def build_request(
     url: str,
     headers: dict[str, str],
@@ -287,7 +291,10 @@ def main() -> int:
         repo = require_env("GITHUB_REPOSITORY")
         pr_number = require_env("PR_NUMBER")
         github_token = require_env("GITHUB_TOKEN")
-        openai_api_key = require_env("OPENAI_API_KEY")
+        openai_api_key = optional_env("OPENAI_API_KEY")
+        if not openai_api_key:
+            print("Skipping automated PR review because OPENAI_API_KEY is not configured.")
+            return 0
         openai_model = os.getenv("OPENAI_MODEL", "gpt-5").strip() or "gpt-5"
 
         pr = fetch_pr(repo, pr_number, github_token)
