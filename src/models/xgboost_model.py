@@ -1,6 +1,7 @@
 import joblib
-import xgboost as xgb
+
 import numpy as np
+import xgboost as xgb
 
 from src.models.base_model import BaseModel
 
@@ -13,6 +14,7 @@ class XGBoostModel(BaseModel):
     """
 
     def __init__(self, params: dict | None = None):
+        super().__init__()
 
         default_params = {
             "n_estimators": 500,
@@ -31,33 +33,25 @@ class XGBoostModel(BaseModel):
         self.params = default_params
         self.model = xgb.XGBRegressor(**self.params)
 
-    # --------------------------------------------------
-    # 训练
-    # --------------------------------------------------
-
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """
         训练模型
         """
 
-        self.model.fit(X, y)
+        if sample_weight is None:
+            self.model.fit(X, y)
+        else:
+            self.model.fit(X, y, sample_weight=sample_weight)
 
         return self
-
-    # --------------------------------------------------
-    # 预测
-    # --------------------------------------------------
 
     def predict(self, X) -> np.ndarray:
         """
         预测
         """
 
-        return self.model.predict(X)
-
-    # --------------------------------------------------
-    # 保存模型
-    # --------------------------------------------------
+        raw_preds = self.model.predict(X)
+        return self.apply_linear_correction(raw_preds)
 
     def save(self, path):
         """
@@ -65,10 +59,7 @@ class XGBoostModel(BaseModel):
         """
 
         joblib.dump(self.model, path)
-
-    # --------------------------------------------------
-    # 加载模型
-    # --------------------------------------------------
+        self.save_linear_correction(path)
 
     def load(self, path):
         """
@@ -76,5 +67,6 @@ class XGBoostModel(BaseModel):
         """
 
         self.model = joblib.load(path)
+        self.load_linear_correction(path)
 
         return self

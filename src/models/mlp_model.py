@@ -1,7 +1,7 @@
+import joblib
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import joblib
 
 from src.models.base_model import BaseModel
 
@@ -36,6 +36,7 @@ class MLPModel(BaseModel):
     """
 
     def __init__(self, params: dict | None = None):
+        super().__init__()
 
         default_params = {
             "hidden_dims": [128, 64],
@@ -53,11 +54,7 @@ class MLPModel(BaseModel):
         self.optimizer = None
         self.loss_fn = nn.MSELoss()
 
-    # --------------------------------------------------
-    # 训练
-    # --------------------------------------------------
-
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
 
         X = np.array(X)
         y = np.array(y)
@@ -118,10 +115,6 @@ class MLPModel(BaseModel):
 
         return self
 
-    # --------------------------------------------------
-    # 预测
-    # --------------------------------------------------
-
     def predict(self, X):
 
         self.model.eval()
@@ -133,19 +126,12 @@ class MLPModel(BaseModel):
         with torch.no_grad():
             preds = self.model(X_tensor).numpy()
 
-        return preds
-
-    # --------------------------------------------------
-    # 保存
-    # --------------------------------------------------
+        return self.apply_linear_correction(preds)
 
     def save(self, path):
 
         torch.save(self.model.state_dict(), path)
-
-    # --------------------------------------------------
-    # 加载
-    # --------------------------------------------------
+        self.save_linear_correction(path)
 
     def load(self, path, input_dim, output_dim):
 
@@ -158,5 +144,6 @@ class MLPModel(BaseModel):
         self.model.load_state_dict(torch.load(path))
 
         self.model.eval()
+        self.load_linear_correction(path)
 
         return self
