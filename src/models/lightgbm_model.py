@@ -6,7 +6,6 @@ from .base_model import BaseModel
 class LightGBMModel(BaseModel):
 
     def __init__(self, params=None):
-        super().__init__()
         self.params = params or {}
         self.model = None
 
@@ -18,19 +17,15 @@ class LightGBMModel(BaseModel):
     def predict(self, X):
 
         if isinstance(self.model, lgb.Booster):
-            raw_preds = self.model.predict(X)
-            return self.apply_linear_correction(raw_preds)
+            return self.model.predict(X)
 
-        raw_preds = self.model.predict(X)
-        return self.apply_linear_correction(raw_preds)
+        return self.model.predict(X)
 
     def save(self, path):
 
         booster = self.model.booster_
         booster.save_model(path)
-        self.save_linear_correction(path)
 
     def load(self, path):
 
         self.model = lgb.Booster(model_file=path)
-        self.load_linear_correction(path)

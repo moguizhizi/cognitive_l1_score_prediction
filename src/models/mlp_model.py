@@ -36,8 +36,6 @@ class MLPModel(BaseModel):
     """
 
     def __init__(self, params: dict | None = None):
-        super().__init__()
-
         default_params = {
             "hidden_dims": [128, 64],
             "lr": 1e-3,
@@ -126,12 +124,11 @@ class MLPModel(BaseModel):
         with torch.no_grad():
             preds = self.model(X_tensor).numpy()
 
-        return self.apply_linear_correction(preds)
+        return preds
 
     def save(self, path):
 
         torch.save(self.model.state_dict(), path)
-        self.save_linear_correction(path)
 
     def load(self, path, input_dim, output_dim):
 
@@ -144,6 +141,5 @@ class MLPModel(BaseModel):
         self.model.load_state_dict(torch.load(path))
 
         self.model.eval()
-        self.load_linear_correction(path)
 
         return self

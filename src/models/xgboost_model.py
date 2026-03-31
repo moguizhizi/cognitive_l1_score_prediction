@@ -14,8 +14,6 @@ class XGBoostModel(BaseModel):
     """
 
     def __init__(self, params: dict | None = None):
-        super().__init__()
-
         default_params = {
             "n_estimators": 500,
             "learning_rate": 0.05,
@@ -50,8 +48,7 @@ class XGBoostModel(BaseModel):
         预测
         """
 
-        raw_preds = self.model.predict(X)
-        return self.apply_linear_correction(raw_preds)
+        return self.model.predict(X)
 
     def save(self, path):
         """
@@ -59,7 +56,6 @@ class XGBoostModel(BaseModel):
         """
 
         joblib.dump(self.model, path)
-        self.save_linear_correction(path)
 
     def load(self, path):
         """
@@ -67,6 +63,5 @@ class XGBoostModel(BaseModel):
         """
 
         self.model = joblib.load(path)
-        self.load_linear_correction(path)
 
         return self
