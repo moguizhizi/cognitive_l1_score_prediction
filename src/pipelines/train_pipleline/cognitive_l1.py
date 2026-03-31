@@ -107,6 +107,58 @@ def build_training_data(
     return feature_df, y, feature_df.columns.tolist()
 
 
+def compute_k(current, c=100, s=10):
+    """
+    计算权重 k ∈ (0,1)
+
+    参数：
+    - current: 当前值
+    - c: 拐点（越小越保守）
+    - s: 平滑程度（越小下降越快）
+
+    性质：
+    - current ↑ → k ↓
+    - current → 160 → k → 0
+    """
+    return 1 / (1 + np.exp((current - c) / s))
+
+
+def compute_M(N, current, range_val):
+    """
+    计算最终修正值 M
+
+    约束：
+    - M > current
+    - M < 160
+    - current 越大 → 增长越保守
+    """
+
+    # --- Step 0: 修正 range_val（关键） ---
+    range_val = max(range_val, 0.0)
+
+    # --- Step 1: 计算 k ---
+    k = compute_k(current)
+
+    # --- Step 2: 防止预测下降 ---
+    # 至少增长一个极小值 or range_val
+    min_increase = max(1e-6, range_val)
+    N = min(N, current + min_increase)
+
+    # --- Step 3: 上界控制 ---
+    max_cap = 160 - 1  # 你这里留了 buffer（很好）
+
+    # 可增长空间
+    delta = min(N - current, max_cap - current)
+
+    # --- Step 4: 插值 ---
+    M = current + k * delta
+
+    # --- Step 5: 下界保护 ---
+    M = max(M, current + 1e-6)
+
+    return M
+
+
 def direct_horizon_forecast(
     model,
     history: list[float],
@@ -120,8 +172,16 @@ def direct_horizon_forecast(
     feats['hist_len'] = len(effective_history)
     feats['current'] = current
 
+    # --- 计算 range ---
+    if len(effective_history) > 0:
+        range_val = max(effective_history) - min(effective_history)
+    else:
+        range_val = 0.0
+
     X = pd.DataFrame([feats]).reindex(columns=feature_cols, fill_value=np.nan)
-    return float(model.predict(X)[0])
+    pred = float(model.predict(X)[0])
+    pred = compute_M(pred, current, range_val)  # 计算 M 和 k，但目前不修改 pred
+    return pred
 
 
 def evaluate_direct_validation(
