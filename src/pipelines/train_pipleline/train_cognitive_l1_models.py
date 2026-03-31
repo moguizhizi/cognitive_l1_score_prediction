@@ -54,13 +54,12 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, cols):
     models = {}
     feature_dict = {}
     metrics_dict = {}
-    correction_dict = {}
     target_cols = resolve_target_columns(cols)
 
     for target in target_cols:
         logger.info(f'Training target: {target}')
 
-        model, feature_cols, recursive_metrics, linear_correction = train_pipeline(
+        model, feature_cols, recursive_metrics = train_pipeline(
             train_df,
             val_df,
             user_col=cols.patient_id,
@@ -71,11 +70,10 @@ def train_all_models(train_df: pd.DataFrame, val_df: pd.DataFrame, cols):
         models[target] = model
         feature_dict[target] = feature_cols
         metrics_dict[target] = recursive_metrics
-        correction_dict[target] = linear_correction
 
     logger.info('All models trained successfully')
 
-    return models, feature_dict, metrics_dict, correction_dict
+    return models, feature_dict, metrics_dict
 
 
 def build_training_summary(
@@ -84,7 +82,6 @@ def build_training_summary(
     val_df: pd.DataFrame,
     feature_dict: dict,
     metrics_dict: dict,
-    correction_dict: dict,
 ) -> dict:
     return {
         'generated_at': datetime.now().isoformat(),
@@ -97,7 +94,6 @@ def build_training_summary(
             target: {
                 'feature_count': len(feature_cols),
                 'feature_columns': feature_cols,
-                'linear_correction': correction_dict.get(target),
                 'recursive_validation_metrics': metrics_dict.get(target),
             }
             for target, feature_cols in feature_dict.items()
@@ -136,7 +132,7 @@ def main():
     # val_df_100 = val_df.head(1000).copy()
     # logger.info(f'Val subset shape for training metrics: {val_df_100.shape}')
 
-    models, feature_dict, metrics_dict, correction_dict = train_all_models(train_df, val_df, cols)
+    models, feature_dict, metrics_dict = train_all_models(train_df, val_df, cols)
 
     model_dir.mkdir(parents=True, exist_ok=True)
 
@@ -157,7 +153,6 @@ def main():
         val_df=val_df,
         feature_dict=feature_dict,
         metrics_dict=metrics_dict,
-        correction_dict=correction_dict,
     )
     summary_path = save_training_summary(summary, experiment_dir)
     logger.info(f'Training summary saved: {summary_path}')

@@ -44,89 +44,184 @@ def load_dataset_runtime():
 
     return config, column_mapping, processed_dir, splitter_dir, split_config
 
-
 def split_cognitive_l1_dataset(
-    df: pd.DataFrame,
-    cols,
-    valid_patient_min_weeks: int,
-    recent_valid_weeks: int,
+    df,
+    patient_col,
+    week_col,
+    window_size=16,
+    train_val_ratio=4
 ):
-    """
-    只生成 train / val。
+    train_samples = []
+    val_samples = []
 
-    规则：
-    1. 先按每个患者最近 recent_valid_weeks 周尝试划分验证集
-    2. 仅当该患者 max_week >= recent_valid_weeks 时，最近 recent_valid_weeks 周的数据才进入验证集
-    3. 其余数据划入训练集
-    4. 再对训练集进行过滤，仅保留训练记录数 >= valid_patient_min_weeks 的患者
-    """
+    for pid, group in df.groupby(patient_col):
+        group = group.sort_values(week_col).reset_index(drop=True)
 
-    patient_id = cols.patient_id
-    week = cols.training_week
+        length = len(group)
 
-    logger.info("Starting dataset split")
+        # --- 数据不足，跳过 ---
+        if length < window_size * 2:
+            continue
 
-    df = df.dropna(subset=[week]).copy()
-    patient_max_week = df.groupby(patient_id)[week].max()
+        # --- 计算切分点 x ---
+        # x - w + 1 = r * (len - x - w + 1)
+        # 推导：x = (r*len - (r-1)*(w-1)) / (r+1)
+        x = (train_val_ratio * length - (train_val_ratio - 1) * (window_size - 1)) / (train_val_ratio + 1)
+        x = int(x)
 
-    logger.info(f"Total patients: {patient_max_week.shape[0]}")
+        # --- 边界保护 ---
+        if x < window_size or (length - x) < window_size:
+            continue
 
-    train_list = []
-    val_list = []
-    val_patient_count = 0
-    train_only_patient_count = 0
+        # =====================
+        # 构造训练集（滑动窗口）
+        # =====================
+        for i in range(0, x - window_size + 1):
+            window = group.iloc[i:i + window_size].copy()
+            window["sample_type"] = "train"
+            window["window_id"] = f"{pid}_train_{i}"
+            train_samples.append(window)
 
-    for pid, max_week in patient_max_week.items():
-        patient_df = df[df[patient_id] == pid].sort_values(week).copy()
-        recent_valid_start = max(int(max_week - recent_valid_weeks + 1), 1)
+        # =====================
+        # 构造验证集（滑动窗口）
+        # =====================
+        for i in range(x, length - window_size + 1):
+            window = group.iloc[i:i + window_size].copy()
+            window["sample_type"] = "val"
+            window["window_id"] = f"{pid}_val_{i}"
+            val_samples.append(window)
 
-        if max_week >= recent_valid_weeks:
-            patient_val_df = patient_df[patient_df[week] >= recent_valid_start].copy()
-            patient_train_df = patient_df[patient_df[week] < recent_valid_start].copy()
-            val_list.append(patient_val_df)
-            train_list.append(patient_train_df)
-            val_patient_count += 1
-        else:
-            train_list.append(patient_df)
-            train_only_patient_count += 1
+    # === 拼接 DataFrame ===
+    train_df = pd.concat(train_samples, ignore_index=True) if train_samples else pd.DataFrame()
+    val_df = pd.concat(val_samples, ignore_index=True) if val_samples else pd.DataFrame()
 
-    train_df = (
-        pd.concat(train_list, ignore_index=False)
-        if train_list
-        else pd.DataFrame(columns=df.columns)
+    # =====================
+    # 📊 统计信息
+    # =====================
+    train_window_count = len(train_samples)
+    val_window_count = len(val_samples)
+
+    train_patient_count = train_df[patient_col].nunique() if not train_df.empty else 0
+    val_patient_count = val_df[patient_col].nunique() if not val_df.empty else 0
+
+    logger.info("====== Dataset Summary ======")
+    logger.info(f"Train windows: {train_window_count}")
+    logger.info(f"Val windows:   {val_window_count}")
+
+    if val_window_count > 0:
+        logger.info(f"Train/Val ratio: {train_window_count / val_window_count:.2f}")
+
+    logger.info(f"Train patients: {train_patient_count}")
+    logger.info(f"Val patients:   {val_patient_count}")
+    logger.info("=============================")
+
+    return (
+        train_df,
+        val_df,
     )
-    val_df = (
-        pd.concat(val_list, ignore_index=False)
-        if val_list
-        else pd.DataFrame(columns=df.columns)
-    )
 
-    train_counts = (
-        train_df.groupby(patient_id)[week].count()
-        if not train_df.empty
-        else pd.Series(dtype="int64")
-    )
-    eligible_train_patients = train_counts[train_counts >= valid_patient_min_weeks].index
-    train_df = train_df[train_df[patient_id].isin(eligible_train_patients)].copy()
 
-    filtered_train_counts = (
-        train_df.groupby(patient_id)[week].count()
-        if not train_df.empty
-        else pd.Series(dtype="int64")
-    )
-    if not filtered_train_counts.empty and int(filtered_train_counts.min()) < valid_patient_min_weeks:
-        raise ValueError(
-            "Train split contains patients with fewer records than valid_patient_min_weeks."
-        )
+# def split_cognitive_l1_dataset(
+#     df: pd.DataFrame,
+#     cols,
+#     valid_patient_min_weeks: int,
+#     recent_valid_weeks: int,
+# ):
+#     """
+#     只生成 train / val。
 
-    logger.info(f"Patients assigned to validation: {val_patient_count}")
-    logger.info(f"Patients kept in train only before filtering: {train_only_patient_count}")
-    logger.info(f"Patients kept in train after filtering: {len(eligible_train_patients)}")
-    logger.info(f"Train samples: {len(train_df)}")
-    logger.info(f"Validation samples: {len(val_df)}")
-    logger.info("Dataset split finished")
+#     规则：
+#     1. 先按每个患者最近 recent_valid_weeks 周尝试划分验证集
+#     2. 仅当该患者 max_week >= recent_valid_weeks 时，最近 recent_valid_weeks 周的数据才进入验证集
+#     3. 其余数据划入训练集
+#     4. 再对训练集进行过滤，仅保留训练记录数 >= valid_patient_min_weeks 的患者
+#     """
 
-    return train_df, val_df
+#     patient_id = cols.patient_id
+#     week = cols.training_week
+
+#     logger.info("Starting dataset split")
+
+#     df = df.dropna(subset=[week]).copy()
+#     patient_max_week = df.groupby(patient_id)[week].max()
+
+#     logger.info(f"Total patients: {patient_max_week.shape[0]}")
+
+#     train_list = []
+#     val_list = []
+#     val_patient_count = 0
+#     train_only_patient_count = 0
+
+#     for pid, max_week in patient_max_week.items():
+#         patient_df = df[df[patient_id] == pid].sort_values(week).copy()
+#         recent_valid_start = max(int(max_week - recent_valid_weeks + 1), 1)
+
+#         if max_week >= recent_valid_weeks:
+#             patient_val_df = patient_df[patient_df[week] >= recent_valid_start].copy()
+#             patient_train_df = patient_df[patient_df[week] < recent_valid_start].copy()
+#             val_list.append(patient_val_df)
+#             train_list.append(patient_train_df)
+#             val_patient_count += 1
+#         else:
+#             train_list.append(patient_df)
+#             train_only_patient_count += 1
+
+#     train_df = (
+#         pd.concat(train_list, ignore_index=False)
+#         if train_list
+#         else pd.DataFrame(columns=df.columns)
+#     )
+#     val_df = (
+#         pd.concat(val_list, ignore_index=False)
+#         if val_list
+#         else pd.DataFrame(columns=df.columns)
+#     )
+
+#     train_counts = (
+#         train_df.groupby(patient_id)[week].count()
+#         if not train_df.empty
+#         else pd.Series(dtype="int64")
+#     )
+
+#     eligible_train_patients = train_counts[train_counts >= valid_patient_min_weeks].index
+#     train_df = train_df[train_df[patient_id].isin(eligible_train_patients)].copy()
+
+#     filtered_train_counts = (
+#         train_df.groupby(patient_id)[week].count()
+#         if not train_df.empty
+#         else pd.Series(dtype="int64")
+#     )
+
+#     filtered_val_counts = (
+#         val_df.groupby(patient_id)[week].count()
+#         if not val_df.empty
+#         else pd.Series(dtype="int64")
+#     )
+
+#     if filtered_train_counts.empty:
+#         raise ValueError(
+#             "Train split contains patients with fewer records than valid_patient_min_weeks."
+#         )
+
+#     print(filtered_train_counts)
+#     print((filtered_train_counts[filtered_train_counts >= 5] - 5 + 1).sum())
+
+#     print((filtered_train_counts[filtered_train_counts >= 16] - 16 + 1).sum())
+
+#     print(filtered_val_counts)
+#     print((filtered_val_counts[filtered_val_counts >= 5] - 5 + 1).sum())
+#     print((filtered_val_counts[filtered_val_counts >= 16] - 16 + 1).sum())
+
+#     exit(0)
+
+#     logger.info(f"Patients assigned to validation: {val_patient_count}")
+#     logger.info(f"Patients kept in train only before filtering: {train_only_patient_count}")
+#     logger.info(f"Patients kept in train after filtering: {len(eligible_train_patients)}")
+#     logger.info(f"Train samples: {len(train_df)}")
+#     logger.info(f"Validation samples: {len(val_df)}")
+#     logger.info("Dataset split finished")
+
+#     return train_df, val_df
 
 
 # =========================================================
@@ -156,9 +251,8 @@ def main():
 
     train_df, val_df = split_cognitive_l1_dataset(
         df,
-        cols,
-        valid_patient_min_weeks=valid_patient_min_weeks,
-        recent_valid_weeks=recent_valid_weeks,
+        cols.patient_id,
+        cols.training_week,
     )
 
     # 保存 CSV（用于 head 查看）
