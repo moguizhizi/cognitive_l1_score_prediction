@@ -92,6 +92,7 @@ train:
     noise_prob: 0.0
     noise_std: 0.0
     target_horizon_weeks: 12
+    alpha_c: 150
 
   model_params:
     n_estimators: 500
@@ -116,3 +117,4 @@ train:
         reg_lambda: 1.0
       training_data_params:
         target_horizon_weeks: 12
+        alpha_c: 150
