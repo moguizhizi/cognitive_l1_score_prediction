@@ -62,7 +62,6 @@ def build_training_data(
     noise_std: float,
     randomize_history_len: bool,
     add_noise: bool,
-    target_mode: str = 'delta',
     target_horizon_weeks: int = 1,
 ):
     df = df.sort_values([user_col, time_col])
@@ -91,10 +90,7 @@ def build_training_data(
 
             current = values[i]
             future_value = values[i + target_horizon_weeks]
-            if target_mode == 'next_value':
-                target = future_value
-            else:
-                target = future_value - current
+            target = future_value
 
             feats = build_features(history, max_history_len)
             feats['hist_len'] = hist_len
@@ -115,11 +111,8 @@ def direct_horizon_forecast(
     model,
     history: list[float],
     current: float,
-    clip_min: float,
-    clip_max: float,
     max_history_len: int,
     feature_cols: list[str],
-    target_mode: str = 'delta',
 ) -> float:
     effective_history = history[-max_history_len:]
 
@@ -128,12 +121,7 @@ def direct_horizon_forecast(
     feats['current'] = current
 
     X = pd.DataFrame([feats]).reindex(columns=feature_cols, fill_value=np.nan)
-    raw_pred = model.predict(X)[0]
-    if target_mode == 'next_value':
-        return float(raw_pred)
-
-    delta = np.clip(raw_pred, clip_min, clip_max)
-    return float(current + delta)
+    return float(model.predict(X)[0])
 
 
 def evaluate_direct_validation(
@@ -145,10 +133,7 @@ def evaluate_direct_validation(
     min_history_len: int,
     max_history_len: int,
     target_horizon_weeks: int,
-    clip_min: float,
-    clip_max: float,
     feature_cols: list[str],
-    target_mode: str = 'delta',
 ):
     df = df.sort_values([user_col, time_col])
     predictions = []
@@ -170,11 +155,8 @@ def evaluate_direct_validation(
                 model=model,
                 history=history,
                 current=current,
-                clip_min=clip_min,
-                clip_max=clip_max,
                 max_history_len=max_history_len,
                 feature_cols=feature_cols,
-                target_mode=target_mode,
             )
 
             predictions.append(pred_target)
@@ -183,14 +165,6 @@ def evaluate_direct_validation(
 
     if not predictions:
         return None
-
-    rmse = np.sqrt(mean_squared_error(targets, predictions))
-    mae = mean_absolute_error(targets, predictions)
-    relative_error = np.mean(
-        np.abs(np.array(predictions) - np.array(targets))
-        / np.maximum(np.abs(np.array(targets)), 1e-8)
-    )
-    accuracy = max(0.0, 1.0 - float(relative_error))
 
     rmse = np.sqrt(mean_squared_error(targets, predictions))
     mae = mean_absolute_error(targets, predictions)
@@ -219,7 +193,6 @@ def train_pipeline(
     user_col,
     time_col,
     target,
-    target_mode_override=None,
 ):
     logger.info(f'Start training pipeline for target: {target}')
 
@@ -238,15 +211,11 @@ def train_pipeline(
     noise_prob = training_data_params.get('noise_prob', 0.3)
     noise_std = training_data_params.get('noise_std', 0.5)
     target_horizon_weeks = training_data_params.get('target_horizon_weeks', 12)
-    recursive_clip_min = training_data_params.get('recursive_clip_min', -5)
-    recursive_clip_max = training_data_params.get('recursive_clip_max', 10)
-    target_mode = target_mode_override or training_data_params.get('target_mode', 'next_value')
     evaluation_strategy = 'direct_horizon'
 
     logger.info(f'Model name: {model_name}')
     logger.info(f'Model params: {model_params}')
     logger.info(f'Training data params: {training_data_params}')
-    logger.info(f'Target mode: {target_mode}')
     logger.info(f'Target horizon weeks: {target_horizon_weeks}')
     logger.info(f'Evaluation strategy: {evaluation_strategy}')
     if target_overrides:
@@ -265,7 +234,6 @@ def train_pipeline(
         noise_std=noise_std,
         randomize_history_len=True,
         add_noise=bool(noise_prob and noise_std),
-        target_mode=target_mode,
         target_horizon_weeks=target_horizon_weeks,
     )
 
@@ -291,10 +259,7 @@ def train_pipeline(
         min_history_len=min_history_len,
         max_history_len=max_history_len,
         target_horizon_weeks=target_horizon_weeks,
-        clip_min=recursive_clip_min,
-        clip_max=recursive_clip_max,
         feature_cols=feature_cols,
-        target_mode=target_mode,
     )
 
     if recursive_metrics is None:
